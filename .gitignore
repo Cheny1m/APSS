@@ -1,2 +1,13 @@
+# log & output
 logs/
 outputs/
+
+# built binaries
+dist
+
+# vscode
+.vscode/
+
+# cache
+*__pycache__
+*.egg-info

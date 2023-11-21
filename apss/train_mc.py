@@ -62,7 +62,7 @@ def rollout(model, dataset, opts):
     pis = []
     ms_dataset = ds.GeneratorDataset(source=dataset,column_names=["data", "ori_data", "cost_c_data"],num_parallel_workers=4)
     ms_dataset = ms_dataset.batch(batch_size=opts.eval_batch_size) 
-    for data in tqdm(ms_dataset.create_dict_iterator(output_numpy=True)):
+    for data in tqdm(ms_dataset.create_dict_iterator(),total = math.ceil(len(dataset) / opts.eval_batch_size)):
         cost,pi = eval_model_bat(data["data"],data["ori_data"],data["cost_c_data"])
         bats.append(cost)
         pis.append(pi)
@@ -85,17 +85,17 @@ def train_epoch(model, optimizer, baseline, lr_scheduler,epoch, val_dataset, pro
         tb_logger.log_value('learnrate_pg0', optimizer.group_lr[0](epoch).asnumpy(), step)
     # init()
     # Generate new training data for each epoch
-    training_dataset = baseline.wrap_dataset(problem.make_dataset(
+    training_dataset_ = baseline.wrap_dataset(problem.make_dataset(
         size=opts.graph_size, num_samples=opts.epoch_size, distribution=opts.data_distribution, num_split=opts.num_split))
     
     # training_dataset = (data, ori_data, cost_c_data), baseline_cost, baseline_pi
-    def data_generator(training_data):
-        for item in training_data:
+    def data_generator(training_dataset_):
+        for item in training_dataset_:
             (data, ori_data, cost_c_data), baseline_cost, baseline_pi = item
             yield data, ori_data, cost_c_data, baseline_cost, baseline_pi
 
     # Unpacking of data tuples to Tensor/numpy
-    training_dataset = ds.GeneratorDataset(source=data_generator(training_dataset), column_names=['data','ori_data','cost_c_data','baseline_cost', 'baseline_pi'],num_parallel_workers=4)
+    training_dataset = ds.GeneratorDataset(source=data_generator(training_dataset_), column_names=['data','ori_data','cost_c_data','baseline_cost', 'baseline_pi'],num_parallel_workers=4)
 
     training_dataset = training_dataset.batch(batch_size=opts.batch_size,drop_remainder=True)
 
@@ -104,7 +104,7 @@ def train_epoch(model, optimizer, baseline, lr_scheduler,epoch, val_dataset, pro
     set_decode_type(model, "sampling")
     print("train batch baseline name: ", baseline)#," alpha : ", baseline.alpha)
 
-    for batch_id, batch in enumerate(tqdm(training_dataset.create_dict_iterator(), disable=opts.no_progress_bar)):
+    for batch_id, batch in enumerate(tqdm(training_dataset.create_dict_iterator(), total = math.ceil(len(training_dataset_) / opts.batch_size),disable=opts.no_progress_bar)):
         train_batch(
             model,
             optimizer,
@@ -191,6 +191,5 @@ def train_batch(model, optimizer, baseline, epoch, batch_id, step, batch, tb_log
             set_decode_type(model, "greedy")
             test(model,model.node_size,model.num_split)
             set_decode_type(model, "sampling")
-            model.set_train(mode=True) 
-    
+            model.set_train(mode=True)  
     return loss

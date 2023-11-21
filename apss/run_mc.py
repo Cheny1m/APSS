@@ -26,7 +26,7 @@ def run(opts):
 
     # Set the device，PYNATIVE_MODE
     device_target = "GPU" if opts.use_cuda else "CPU"
-    ms.set_context(device_target=device_target,mode=ms.PYNATIVE_MODE)
+    ms.set_context(device_target=device_target, device_id = 1, mode=ms.PYNATIVE_MODE)
     print("device:",ms.get_context("device_target"),"\nmode:",ms.get_context("mode"))
 
     # Optionally configure tensorboard/ install tensorflow and tensorboard_logger. mindinsight can be uesed for this.

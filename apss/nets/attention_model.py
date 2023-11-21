@@ -112,25 +112,19 @@ class AttentionModel(nn.Cell):
                 node_dim = 4
             else:
                 node_dim = 3
-            # self.init_embed_depot = nn.Dense(2, embedding_dim, weight_init=init.Normal(0.02))
             self.init_embed_depot = nn.Dense(2, embedding_dim)
             if self.is_vrp and self.allow_partial:
                 self.project_node_step = nn.Dense(1, 3 * embedding_dim, has_bias = False)
         elif self.is_pp:
             step_context_dim = 2 * embedding_dim
             node_dim = 2 + self.num_split
-            # self.W_placeholder = ms.Parameter(np.random.uniform(-1,1,ms.Tensor(2 * embedding_dim)).astype(np.float32))
             self.W_placeholder = ms.Parameter(initializer(Uniform(scale=1), [2 * embedding_dim],ms.float32))
         else:
             assert problem.NAME == "tsp" or problem.NAME == "sp", "Unsupported problem: {}".format(problem.NAME)
             step_context_dim = 2 * embedding_dim
             node_dim = 2
-            # self.W_placeholder = ms.Parameter(np.random.uniform(-1,1,ms.Tensor(2 * embedding_dim)).astype(np.float32))
             self.W_placeholder = ms.Parameter(initializer(Uniform(scale=1), [2 * embedding_dim],ms.float32))
-
         
-        # self.init_embed = nn.Dense(node_dim, embedding_dim, UniformInitializer(node_dim))
-        # print("node_dim,embedding_dim:",node_dim,embedding_dim)
         self.init_embed = nn.Dense(node_dim, embedding_dim)
 
         self.embedder = GraphAttentionEncoder(
@@ -139,10 +133,6 @@ class AttentionModel(nn.Cell):
             n_layers=self.n_encode_layers,
             normalization=normalization
         )
-
-        # self.project_node_embeddings = nn.Dense(embedding_dim, 3 * embedding_dim, weight_init=UniformInitializer(embedding_dim),has_bias = False)
-        # self.project_fixed_context = nn.Dense(embedding_dim, embedding_dim, weight_init=UniformInitializer(embedding_dim),has_bias = False)
-        # self.project_step_context = nn.Dense(step_context_dim, embedding_dim, weight_init=UniformInitializer(step_context_dim),has_bias = False)
         self.project_node_embeddings = nn.Dense(embedding_dim, 3 * embedding_dim,has_bias = False)
         self.project_fixed_context = nn.Dense(embedding_dim, embedding_dim,has_bias = False)
         self.project_step_context = nn.Dense(step_context_dim, embedding_dim,has_bias = False)
@@ -314,7 +304,8 @@ class AttentionModel(nn.Cell):
             # selected = ops.multinomial(probs, 1).squeeze(1)
             
             probs = probs + 1e-20
-            probs = probs / probs.sum(axis=-1, keepdims=True)
+            # probs = probs / probs.sum(axis=-1, keepdims=True)
+            probs = ops.softmax(probs)
 
             # print("probs:",probs)
             dist = Categorical(probs)
@@ -333,7 +324,7 @@ class AttentionModel(nn.Cell):
 
                 # selected = ops.multinomial(probs, 1).squeeze(1)
                 
-                dist = Categorical(probs)
+                # dist = Categorical(probs)
                 selected = dist.sample()
         else:
             assert False, "Unknown decode type"
