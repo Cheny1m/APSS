@@ -1,7 +1,6 @@
 import os
 import pickle
 
-
 def check_extension(filename):
     if os.path.splitext(filename)[1] != ".pkl":
         return filename + ".pkl"

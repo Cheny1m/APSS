@@ -1,9 +1,4 @@
 import math
-from utils.tensor_functions import compute_in_batches
-from nets.graph_encoder import GraphAttentionEncoder
-from utils.beam_search import CachedLookup
-from mindspore.common.initializer import initializer, Uniform
-from utils.functions import sample_many
 
 import mindspore as ms
 import mindspore.nn as nn
@@ -11,9 +6,15 @@ import mindspore.ops as ops
 import mindspore.common.dtype as mstype
 import mindspore.common.initializer as init
 import mindspore.ops as ops
-
+from mindspore.common.initializer import initializer, Uniform
 from mindspore.nn.probability.distribution import Categorical
-from problems.pp.problem_pp import get_pp_costs,make_pp_state,make_pp_dataset,beam_search
+
+from apss.problems.pp.problem_pp import get_pp_costs,make_pp_state,make_pp_dataset,beam_search
+from apss.utils.tensor_functions import compute_in_batches
+from apss.utils.beam_search import CachedLookup
+from apss.utils.functions import sample_many
+
+from .graph_encoder import GraphAttentionEncoder
 
 # import troubleshooter as ts
 

@@ -1,5 +1,5 @@
 python>=3.7
 mindspore>=2.1.1
+tensorboard_logger
 numpy
 tqdm
-tensorboard_logger

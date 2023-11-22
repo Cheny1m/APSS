@@ -8,11 +8,10 @@ from multiprocessing import Pool
 import mindspore as ms
 import mindspore.nn as nn
 import mindspore.ops as ops
-import pickle
 
 
 def load_problem(name):
-    from problems import PP
+    from apss.problems import PP
     problem = {
         'pp': PP
     }.get(name, None)

@@ -1,8 +1,9 @@
+import math
+import numpy as np
+
 import mindspore.nn as nn
 import mindspore.ops as ops
 import mindspore as ms
-import math
-import numpy as np
 from mindspore.common.initializer import initializer, Uniform
 
 class SkipConnection(nn.Cell):

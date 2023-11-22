@@ -9,6 +9,7 @@ APSS 是一种基于神经网络和启发式策略的深度学习模型分布式
 - [Usage and Examples](#usage-and-examples)
   - [生成PP问题的验证数据集](#生成PP问题的验证数据集)
   - [执行训练](#执行训练)
+- [How It Works](#how-it-works)
 
 
 ## Installation
@@ -30,15 +31,14 @@ pip install -e .
 
 ## Usage and Examples
 
-### 生成PP问题的验证数据集
-```
-python generate_pp_data.py --data_dir ./data --name validation --problem pp --graph_sizes 8 --dataset_size 10000
-```
-其中 `--graph_sizes 8` 代表PP问题的大小，需要与具体训练中的`graph_sizes`对应。执行上述代码后，你应该可以看到一些数据在data目录下生成。
-
-### 执行训练
+### 一步执行训练
 
 ```
-python run_mc.py --problem pp --graph_size 8 --num_split 3 --node_size 8  --model attention --baseline rollout --run_name 'pp_8_4' --batch_size 64 --epoch_size 1280  --val_size 10000 --eval_batch_size 1024 --val_dataset data/pp/pp_8_4_validation_seed1234.pkl
+python -m apss.training.apss_run --graph_size 8 --num_split 3 --rebuild_data
 ```
-`graph_size` , `num_split` , `node_size` 三个命令行参数共同描述了所训练问题的大小，可根据需求动态调整。执行训练后，`.ckpt`保存在output文件夹下，日志保存在log文件夹下，可以通过tensorboard_logger在浏览器中实时查看训练数据。
+* `graph_size` , `num_split` 分别代表了问题的层数大小和需要执行pipeline划分的数量，两个命令行参数共同描述了所训练问题的大小，可根据需求动态调整。
+* `rebuild_data` 表示是否在执行训练前，从Data Synthesizer中生成训练数据，默认建议开启。如果需要从`.ckpt`中接续训练或无需改变之前生成的训练数据直接禁用`--rebuild_data`参数即可。训练数据可在/data目录下找到。
+* 已经完成过执行训练后，`.ckpt`保存在/output文件夹下，日志保存在/log文件夹下，可以通过tensorboard_logger在浏览器中实时查看训练过程及其数据。
+
+## How It Works
+![The pipeline of APSS.](docs/apss_pipeline.png)

@@ -1,9 +1,10 @@
-import mindspore.ops as ops
 from typing import NamedTuple
-from utils.lexsort import torch_lexsort
+
 import mindspore.ops as ops
 import mindspore as ms
 from mindspore import Tensor
+
+from .lexsort import torch_lexsort
 
 def beam_search(*args, **kwargs):
     beams, final_state = _beam_search(*args, **kwargs)

@@ -1,8 +1,8 @@
-from utils.boolmask import mask_long2bool, mask_long_scatter
 import mindspore as ms
 import mindspore.ops as ops
 import mindspore.numpy as mnp
 
+from apss.utils.boolmask import mask_long2bool, mask_long_scatter
 
 def initialize_pp_state(loc, visited_dtype=ms.uint8):
     batch_size, n_loc, _ = loc.shape

@@ -1,1 +1,1 @@
-from problems.pp.problem_pp import PP
+from apss.problems.pp.problem_pp import PP

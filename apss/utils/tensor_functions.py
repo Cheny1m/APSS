@@ -1,4 +1,5 @@
 import mindspore.ops as ops
+
 def compute_in_batches(f, calc_batch_size, *args, n=None):
     """
     Computes memory heavy function f(*args) in batches

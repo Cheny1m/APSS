@@ -1,7 +1,8 @@
+import numpy as np
+
 from mindspore import nn
 from mindspore import Tensor
 from mindspore.ops import functional as F
-import numpy as np
 
 class CustomReinforceLoss(nn.Cell):
     # def __init__(self, model, baseline):

@@ -1,6 +1,5 @@
-# log & output
-logs/
-outputs/
+# data & log & output
+resource/
 
 # built binaries
 dist
@@ -11,3 +10,6 @@ dist
 # cache
 *__pycache__
 *.egg-info
+
+# pickle
+*.pkl

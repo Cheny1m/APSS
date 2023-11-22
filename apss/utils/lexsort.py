@@ -1,8 +1,6 @@
 import numpy as np
 import mindspore as ms
 import mindspore.ops as ops
-from mindspore import Tensor
-
 
 def torch_lexsort(keys, dim=-1):
 

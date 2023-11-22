@@ -1,11 +1,14 @@
 import os
 import pickle
-from problems.pp.state_pp import StatePP,initialize_pp_state
-from utils.beam_search import beam_search
 import numpy as np
+
 from mindspore import Tensor
 import mindspore as ms
 import mindspore.ops as ops
+
+from apss.utils.beam_search import beam_search
+
+from.state_pp import StatePP,initialize_pp_state
 
 # @ms.jit
 def pi2partition(pi,node_size):
