@@ -1,6 +1,13 @@
 # APSS Training Guide
 指导用户如何构建APSS项目的训练过程。
 
+本项目支持的后端设备为：
+  * Ascend[(Help)](https://www.hiascend.com/)
+  * GPU
+  * CPU
+
+本指导文件以GPU环境为例。
+
 ## 目录
 - [项目清单](#项目清单)
 - [环境构建](#环境构建)
@@ -27,13 +34,14 @@
     - 使用Mindspore官方镜像后，使用pip进行安装。
     - 使用[dockerfile](/dockerfile)构建我们已经打包好的容器或者从docker hub上拉取。
 
-## 环境构建
+## 环境构建(GPU)
 Requirements:  
  - Python >= 3.7
  - Mindspore >= 2.2.0 [(Help)](https://www.mindspore.cn/install)
 
 ### Method 1: With Mindspore's Official Image and Build from Source
-启动容器：将`源代码目录APSS`（本例中为/home/upa1/cym/MindSpore/APSS）和`数据包目录data`（本例中为/home/upa1/cym/MindSpore/data）分别映射到容器内部的`APSS`目录（本例中为/root/APSS）和`APSS/resource`目录（本例中为/root/APSS/resource）。
+启动容器：将`源代码目录APSS`（本例中为/home/upa1/cym/MindSpore/APSS）和`数据包目录data`（本例中为/home/upa1/cym/MindSpore/data）分别映射到容器内部的`APSS`目录（本例中为/root/APSS）和`APSS/resource`目录（本例中为/root/APSS/resource）
+***注意：如果数据包的容器映射目录不为默认的`resource`，请在[config.json](/config.json)中修改`RESOURCE_DIR`的value为您定义的目录。***
 ```bash
 docker run -itd -v /dec/shm:/dev/shm -v /home/upa1/cym/MindSpore/APSS:/root/APSS -v /home/upa1/cym/MindSpore/data:/root/APSS/resource --name apss --runtime=nvidia swr.cn-south-1.myhuaweicloud.com/mindspore/mindspore-gpu-cuda11.1:2.2.0 /bin/bash
 
@@ -63,6 +71,13 @@ cd ~/APSS
 ```
 
 ## 程序运行
+### 设置运行环境的context
+本步骤主要设置运行时的目标设备和模式，默认目标设备为`GPU`，默认运行模式为`PYNATIVE_MODE`。如需查看详情和修改目标设备及运行模式，请在[config.json](/config.json)中修改。
+* "DEVICE_TARGET": 设置运行设备。支持[Ascend],[GPU],[CPU].
+
+* "CONTEXT_MODE": 设置运行环境context的mode,在[0]：(GRAPH_MODE)和[1]：(PYNATIVE_MODE)中选择。
+
+
 ### 一步执行训练
 
 ```

@@ -2,10 +2,18 @@ import os
 import argparse
 import sys
 import time
+import json
+
+import mindspore as ms
 
 from .run_mc import run
 from .options import get_options
 from .generate_pp_data import generate,generate_options
+
+with open('config.json', 'r') as f:
+    config = json.load(f)
+CONTEXT_MODE = config["CONTEXT_MODE"]
+DEVICE_TARGET = config["DEVICE_TARGET"]
 
 def main():
     parser = argparse.ArgumentParser(description="Run training with specified graph size and number of splits.")
@@ -25,7 +33,10 @@ def main():
     sys.argv = [args for args in sys.argv if not args.startswith('--rebuild_data')]
 
     max_num_split = args.num_split
-    # 执行训练
+
+    # 设置训练环境，执行训练
+    ms.set_context(device_target=DEVICE_TARGET, device_id = 0, mode=CONTEXT_MODE)
+
     for num_split in [1,3,7,15,31,63]:
         if num_split > max_num_split:
             continue

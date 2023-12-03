@@ -204,9 +204,6 @@ class RolloutBaselinePP(Baseline):
 
     def eval(self, split_x, ori_x, cost_c_x):
         print("use eval!")
-        # Use no grad for efficient inference
-        # mindspore.context.set_context(mode=mindspore.context.GRAPH_MODE)
-        mindspore.context.set_context(mode=mindspore.PYNATIVE_MODE)
         
         with mindspore.no_grad():
             v, _ = self.model(split_x, ori_x, cost_c_x, return_pi=False)

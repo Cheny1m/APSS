@@ -1,3 +1,10 @@
 {
-    "RESOURCE_DIR":"resource/"
+    "RESOURCE_DIR": "resource/",
+    "RESOURCE_DIR_DESC": "指定数据文件的目录路径。",
+
+    "DEVICE_TARGET":"GPU",
+    "DEVICE_TARGET_DESC":"设置运行设备。支持[Ascend],[GPU],[CPU]。",
+
+    "CONTEXT_MODE": 1,
+    "CONTEXT_MODE_DESC": "设置运行环境context的mode,在[0](GRAPH_MODE)和[1](PYNATIVE_MODE)中选择。"
 }

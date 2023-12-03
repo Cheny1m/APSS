@@ -150,7 +150,6 @@ def train_batch(model, optimizer, baseline, epoch, batch_id, step, batch, tb_log
     # print("combined batch",batch,type(batch))
     x, bl_val, bl_pi = baseline.unwrap_batch(batch)
     split_x, ori_x, cost_c_x = x
-    # ctx = ms.context.set_context(mode=context.GRAPH_MODE, device_target=opts.device)
     split_x = Tensor(split_x, dtype=mstype.float32)
     ori_x = Tensor(ori_x, dtype=mstype.float32)
     cost_c_x = Tensor(cost_c_x, dtype=mstype.float32)

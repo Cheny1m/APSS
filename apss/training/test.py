@@ -108,30 +108,6 @@ def pipe_ast(cost_e, cost_c, B):
     print(f"pipe_ast used {round(time_dp_used,2)} seconds with {L} layers and {k} stages.")
     return (S, cost)
 
-
-context.set_context(mode=context.PYNATIVE_MODE, device_target="GPU")
-# def test(model, node_size, n_split):
-#     model.set_train(False) # 测试模式
-
-#     # 生成数据 
-#     data, ori_data, cost_c_data = generate_pp_data(1, node_size, n_split)
-
-#     data = ms.Tensor(data, ms.float32)
-#     ori_data = ms.Tensor(ori_data, ms.float32)
-#     cost_c_data = ms.Tensor(cost_c_data, ms.float32)
-
-#     print("测试数据:", data.shape, ori_data.shape, cost_c_data.shape)
-#     cost, log_likelihood, pi = model(data, ori_data, cost_c_data, return_pi=True)
-
-#     part = pi2partition(pi[0].tolist(),node_size)
-#     gnn_cots = get_partiton_cost_sequence(ori_data.view(-1), cost_c_data[0,...], part)
-#     print("GNN结果:", part, cost.asnumpy(), gnn_cots.max().asnumpy())
-#     print(n_split + 1)
-
-#     dp, _ = pipe_ast(cost_e=ori_data.view(-1), cost_c=cost_c_data[0,...], B=n_split + 1)
-#     dp_cots = get_partiton_cost_sequence(ori_data.view(-1), cost_c_data[0,...], dp)
-#     print("动态规划结果:", dp, dp_cots.max().asnumpy())  
-
 def test(model, node_size, n_split):
     model.eval()
     # while True:

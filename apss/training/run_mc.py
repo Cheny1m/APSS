@@ -18,6 +18,9 @@ from .reinforce_baselines_pp import  RolloutBaselinePP,WarmupBaseline,NoBaseline
 with open('config.json', 'r') as f:
     config = json.load(f)
 RESOURCE_DIR = config["RESOURCE_DIR"]
+CONTEXT_MODE = config["CONTEXT_MODE"]
+DEVICE_TARGET = config["DEVICE_TARGET"]
+    
 
 def run(opts):
 
@@ -29,8 +32,11 @@ def run(opts):
     ms.set_seed(opts.seed)
 
     # Set the device，PYNATIVE_MODE
-    device_target = "GPU" if opts.use_cuda else "CPU"
-    ms.set_context(device_target=device_target, device_id = 1, mode=ms.PYNATIVE_MODE)
+
+    # device_target = "GPU" if opts.use_cuda else "CPU"
+    # ms.set_context(device_target=device_target, device_id = 1, mode=ms.PYNATIVE_MODE)
+
+    ms.set_context(device_target=DEVICE_TARGET, device_id = 0, mode=CONTEXT_MODE)
     print("device:",ms.get_context("device_target"),"\nmode:",ms.get_context("mode"))
 
     # Optionally configure tensorboard/ install tensorflow and tensorboard_logger. mindinsight can be uesed for this.
