@@ -11,32 +11,51 @@
 
 ## 项目清单
   * 源代码 (https://github.com/Cheny1m/APSS)
+    - apss为项目源代码部分，inference表示推理部分代码，nets表示模型，problems表示我们抽象出来的拟训练问题，training表示训练部分代码，utils是一些工具类。
+    - apss.egg-info为打包后测试使用pip安装apss包后的元数据信息。
+    - docs是一些说明文档
+    - resource是数据包链接
+    -	scripts是一些自动化处理的脚本
+    -	config.json包含一些全局的配置。
+    - dockerfile为训练环境镜像构建文件。
+    -	pyproject.toml为配置依赖启动文件。
+
   * 数据包 
+    - 单独开辟了数据存储，并在构建程序运行环境时，分别将源代码文件和数据包内容同时映射或放入运行环境中，数据包由代码文件中的/resource目录进行映射。即APSS/resource -->data
+
   * Docker环境镜像 (https://hub.docker.com/repository/docker/cheny1m/apss-mindspore-gpu-cuda11.1/general)
+    - 使用Mindspore官方镜像后，使用pip进行安装。
+    - 使用[dockerfile](/dockerfile)构建我们已经打包好的容器或者从docker hub上拉取。
 
 ## 环境构建
 Requirements:  
  - Python >= 3.7
- - Mindspore >= 2.1.1 [(Help)](https://www.mindspore.cn/install)
+ - Mindspore >= 2.2.0 [(Help)](https://www.mindspore.cn/install)
 
 ### Method 1: With Mindspore's Official Image and Build from Source
 启动容器：将`源代码目录APSS`（本例中为/home/upa1/cym/MindSpore/APSS）和`数据包目录data`（本例中为/home/upa1/cym/MindSpore/data）分别映射到容器内部的`APSS`目录（本例中为/root/APSS）和`APSS/resource`目录（本例中为/root/APSS/resource）。
-```
+```bash
 docker run -itd -v /dec/shm:/dev/shm -v /home/upa1/cym/MindSpore/APSS:/root/APSS -v /home/upa1/cym/MindSpore/data:/root/APSS/resource --name apss --runtime=nvidia swr.cn-south-1.myhuaweicloud.com/mindspore/mindspore-gpu-cuda11.1:2.2.0 /bin/bash
 
 docker exec -it apss /bin/bash
 ```
 从源码构建：
-```
+```bash
 cd ~/APSS
 pip install -e .
 ```
 
 ### Method 2: With Our Docker Image
-拉取并启动容器：
-```
+[可选1]拉取镜像
+```bash
 docker push cheny1m/apss-mindspore-gpu-cuda11.1:1.0
-
+```
+[可选2]或者通过dockerfile构建镜像
+```bash
+docker build -t apss-mindspore-gpu-cuda11.1:1.0 .
+```
+获得镜像后启动容器：
+```bash
 docker run -itd -v /dec/shm:/dev/shm -v /home/upa1/cym/MindSpore/APSS:/root/APSS -v /home/upa1/cym/MindSpore/data:/root/APSS/resource --name apss --runtime=nvidia cheny1m/apss-mindspore-gpu-cuda11.1:1.0 /bin/bash
 
 docker exec -it apss /bin/bash

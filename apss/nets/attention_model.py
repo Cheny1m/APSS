@@ -302,31 +302,12 @@ class AttentionModel(nn.Cell):
         
 
         elif self.decode_type == "sampling":
-            # selected = ops.multinomial(probs, 1).squeeze(1)
-            
-            probs = probs + 1e-20
-            # probs = probs / probs.sum(axis=-1, keepdims=True)
-            probs = ops.softmax(probs)
-
-            # print("probs:",probs)
-            dist = Categorical(probs)
-            selected = dist.sample()
-            
-            # m = probs == 0
-            # probs[m] = -float('inf')
-            # selected = ops.random_categorical(probs,1).squeeze(1)
-
-            # while ops.gather_elements(mask,1, ops.expand_dims(selected,-1)).any():
-            # while mask.gather_elements(1,ops.expand_dims(selected,-1)).any():
+            selected = ops.multinomial(probs, 1,replacement = False).squeeze(1)
+        
             while mask.gather_elements(1,selected.unsqueeze(-1)).any():
                 print('Sampled bad values, resampling!')
-                # print("selected:",selected)
-                # selected = ops.random_categorical(probs,1).squeeze(1)
-
-                # selected = ops.multinomial(probs, 1).squeeze(1)
+                selected = ops.multinomial(probs, 1,replacement = False).squeeze(1)
                 
-                # dist = Categorical(probs)
-                selected = dist.sample()
         else:
             assert False, "Unknown decode type"
         return selected

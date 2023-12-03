@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "apss"
-version = "0.3.0"
+version = "0.4.0"
 description = "一种基于神经网络和启发式策略的深度学习模型分布式训练切分(3D parallelism)快速策略搜索算法"
 readme = "README.md"
 requires-python = ">=3.7"
@@ -12,7 +12,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 dependencies = [
-    "mindspore>=2.1.1", 
+    "mindspore>=2.2.0", 
     "tensorboard_logger",
     "numpy", 
     "tqdm",

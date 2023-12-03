@@ -15,7 +15,7 @@ APSS 是一种基于神经网络和启发式策略的深度学习模型分布式
 ## Installation
 Requirements:  
  - Python >= 3.7
- - Mindspore >= 2.1.1
+ - Mindspore >= 2.2.0
 
 ### Method 1: With pip
 ```

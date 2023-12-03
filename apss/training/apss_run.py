@@ -1,6 +1,7 @@
 import os
 import argparse
 import sys
+import time
 
 from .run_mc import run
 from .options import get_options
@@ -23,17 +24,19 @@ def main():
         print("Using previous data!")
     sys.argv = [args for args in sys.argv if not args.startswith('--rebuild_data')]
 
-    # 获取训练参数
-    opts = get_options()
-    opts.node_size = opts.graph_size
-
-    datadir = os.path.join(gen_opts.data_dir, opts.problem)
-    opts.val_dataset = os.path.join(datadir, "{}_{}_{}_{}_seed{}.pkl".format(opts.problem,opts.graph_size, opts.num_split + 1,gen_opts.name,opts.seed))
-
+    max_num_split = args.num_split
     # 执行训练
     for num_split in [1,3,7,15,31,63]:
-        if num_split > opts.num_split:
+        if num_split > max_num_split:
             continue
+            # 获取训练参数
+        opts = get_options()
+        opts.num_split = num_split
+        opts.run_name = "{}_{}_{}_{}".format(opts.problem, opts.graph_size,opts.num_split + 1,time.strftime("%Y%m%dT%H%M%S")) 
+        opts.node_size = opts.graph_size
+        datadir = os.path.join(gen_opts.data_dir, opts.problem)    
+        opts.val_dataset = os.path.join(datadir, "{}_{}_{}_{}_seed{}.pkl".format(opts.problem,opts.graph_size, opts.num_split + 1,gen_opts.name,opts.seed))
+        opts.save_dir = os.path.join(opts.output_dir,"{}_{}".format (opts.problem, opts.graph_size),opts.run_name)
         run(opts)
         print("The training of graphsize:{},num_split:{} is finish!".format(opts.graph_size , num_split))
 

@@ -57,7 +57,7 @@ def load_args(filename):
     return args
 
 def load_model(path, epoch=None):
-    from nets.attention_model import AttentionModel
+    from apss.nets.attention_model import AttentionModel
 
     if os.path.isfile(path):
         model_filename = path
@@ -108,7 +108,7 @@ def load_model(path, epoch=None):
     return model, args
 
 def load_model_temp(path, num_sp, epoch=None):
-    from nets.attention_model import AttentionModel
+    from apss.nets.attention_model import AttentionModel
     ms.set_context(pynative_synchronize=True)
     if os.path.isfile(path):
         model_filename = path
