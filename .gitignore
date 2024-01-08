@@ -13,3 +13,6 @@ dist
 
 # pickle
 *.pkl
+
+# ir flie for Mindspore Graph mode 
+rank_0/

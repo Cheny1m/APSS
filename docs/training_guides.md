@@ -28,7 +28,7 @@
     -	pyproject.toml为配置依赖启动文件。
 
   * 数据包 
-    - 单独开辟了数据存储，并在构建程序运行环境时，分别将源代码文件和数据包内容同时映射或放入运行环境中，数据包由代码文件中的/resource目录进行映射。即APSS/resource -->data
+    - 单独开辟了占用空间较大的数据存储，并在构建程序运行环境时，分别将源代码文件和数据包内容同时映射或放入运行环境中，数据包由代码文件中的/resource目录进行映射。即APSS/resource -->data
 
   * Docker环境镜像 (https://hub.docker.com/repository/docker/cheny1m/apss-mindspore-gpu-cuda11.1/general)
     - 使用Mindspore官方镜像后，使用pip进行安装。
@@ -64,7 +64,7 @@ docker build -t apss-mindspore-gpu-cuda11.1:1.0 .
 ```
 获得镜像后启动容器：
 ```bash
-docker run -itd -v /dec/shm:/dev/shm -v /home/upa1/cym/MindSpore/APSS:/root/APSS -v /home/upa1/cym/MindSpore/data:/root/APSS/resource --name apss --runtime=nvidia cheny1m/apss-mindspore-gpu-cuda11.1:1.0 /bin/bash
+docker run -itd -v /dev/shm:/dev/shm -v /home/upa1/cym/MindSpore/APSS:/root/APSS -v /home/upa1/cym/MindSpore/data:/root/APSS/resource --name apss --runtime=nvidia cheny1m/apss-mindspore-gpu-cuda11.1:1.0 /bin/bash
 
 docker exec -it apss /bin/bash
 cd ~/APSS

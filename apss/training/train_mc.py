@@ -15,6 +15,8 @@ from mindspore.communication.management import init
 
 from apss.nets.attention_model import set_decode_type
 from apss.utils.log_utils import log_values
+from apss.problems.pp.problem_pp import get_pp_costs
+from apss.nets.attention_model import _calc_log_likelihood
 
 from .test import test
 from .test import get_partiton_cost_sequence
@@ -59,13 +61,21 @@ def rollout(model, dataset, opts):
     model.set_train(False)
 
     def eval_model_bat(bat, ori_bat, cost_c_bat):
-        cost, _, pi = model(Tensor(bat, ms.float32),
-                            Tensor(ori_bat, ms.float32),
-                            Tensor(cost_c_bat, ms.float32),
-                            return_pi = True)
+        # cost, _, pi = model(Tensor(bat, ms.float32),
+        #                     Tensor(ori_bat, ms.float32),
+        #                     Tensor(cost_c_bat, ms.float32),
+        #                     return_pi = True)
+        # return cost,pi
+
+        _log_p,pi = model(Tensor(bat, ms.float32), Tensor(ori_bat, ms.float32), Tensor(cost_c_bat, ms.float32),return_pi = True)
+        # _log_p,pi = model(bat,ori_bat,cost_c_bat,return_pi = True)
+        cost,mask = get_pp_costs(ori_bat,cost_c_bat,bat,pi)
+        ll = _calc_log_likelihood(_log_p,pi,mask)
         return cost,pi
+
     bats = []
     pis = []
+
     ms_dataset = ds.GeneratorDataset(source=dataset,column_names=["data", "ori_data", "cost_c_data"],num_parallel_workers=4)
     ms_dataset = ms_dataset.batch(batch_size=opts.eval_batch_size) 
     for data in tqdm(ms_dataset.create_dict_iterator(),total = math.ceil(len(dataset) / opts.eval_batch_size)):
@@ -108,9 +118,9 @@ def train_epoch(model, optimizer, baseline, lr_scheduler,epoch, val_dataset, pro
     # Put model in train mode!
     model.set_train()
     set_decode_type(model, "sampling")
-    print("train batch baseline name: ", baseline)#," alpha : ", baseline.alpha)
+    print("train batch baseline name: ", baseline)
 
-    for batch_id, batch in enumerate(tqdm(training_dataset.create_dict_iterator(), total = math.ceil(len(training_dataset_) / opts.batch_size),disable=opts.no_progress_bar)):
+    for batch_id, batch in enumerate(tqdm(training_dataset.create_dict_iterator(),total = math.ceil(len(training_dataset_) / opts.batch_size),disable=opts.no_progress_bar)):
         train_batch(
             model,
             optimizer,
@@ -150,10 +160,10 @@ def train_batch(model, optimizer, baseline, epoch, batch_id, step, batch, tb_log
     # print("combined batch",batch,type(batch))
     x, bl_val, bl_pi = baseline.unwrap_batch(batch)
     split_x, ori_x, cost_c_x = x
-    split_x = Tensor(split_x, dtype=mstype.float32)
-    ori_x = Tensor(ori_x, dtype=mstype.float32)
-    cost_c_x = Tensor(cost_c_x, dtype=mstype.float32)
-    bl_val = Tensor(bl_val, dtype=mstype.float32) if bl_val is not None else None
+    split_x = Tensor(split_x, dtype=ms.float32)
+    ori_x = Tensor(ori_x, dtype=ms.float32)
+    cost_c_x = Tensor(cost_c_x, dtype=ms.float32)
+    bl_val = Tensor(bl_val, dtype=ms.float32) if bl_val is not None else None
 
     bl_val, bl_loss = baseline.eval(split_x, ori_x, cost_c_x) if bl_val is None else (bl_val, 0)
     bl_cost = bl_val
@@ -161,10 +171,20 @@ def train_batch(model, optimizer, baseline, epoch, batch_id, step, batch, tb_log
     loss_fn = CustomReinforceLoss()
 
     def forward_fn(split_x, ori_x, cost_c_x, bl_cost):
-        cost, log_likelihood, pi = model(split_x, ori_x, cost_c_x, return_pi=True)
-        cost2, log_likelihood2, pi2 = model(split_x, ori_x, cost_c_x, return_pi=True)
+        # cost, log_likelihood, pi = model(split_x, ori_x, cost_c_x, return_pi=True)
+        # cost2, log_likelihood2, pi2 = model(split_x, ori_x, cost_c_x, return_pi=True)
+        # loss = loss_fn(cost, cost2, bl_cost, log_likelihood, log_likelihood2)
+        # return loss,cost,pi,log_likelihood
+
+        _log_p,pi = model(split_x, ori_x, cost_c_x, return_pi=True)
+        cost,mask = get_pp_costs(ori_x,cost_c_x,split_x,pi)
+        log_likelihood = _calc_log_likelihood(_log_p,pi,mask)
+        _log_p2,pi2 = model(split_x, ori_x, cost_c_x, return_pi=True)
+        cost2,mask2 = get_pp_costs(ori_x,cost_c_x,split_x,pi2)
+        log_likelihood2 = _calc_log_likelihood(_log_p2,pi2,mask2)
         loss = loss_fn(cost, cost2, bl_cost, log_likelihood, log_likelihood2)
         return loss,cost,pi,log_likelihood
+
 
     grad_fn = ops.value_and_grad(forward_fn, None, optimizer.parameters, has_aux=True)
 

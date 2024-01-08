@@ -165,6 +165,7 @@ class StatePP:
             ids=kwargs.get('ids', self.ids),
             prev_a=kwargs.get('prev_a', self.prev_a),
             visited_=kwargs.get('visited_', self.visited_),
+
             i=kwargs.get('i', self.i)
         )
         return new_state

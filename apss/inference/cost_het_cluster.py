@@ -84,11 +84,12 @@ def get_cost_c(cluster_info, model_config, parallel_config, amp_config, dp_index
     dp = parallel_config["dp"]
     pp = parallel_config["pp"]
     
-    _layer = ["embed2h", "noop"]
+    # _layer = ["embed2h", "noop"]
+    _layer = []
     for i in range(int(n.item())):
         _layer.append("transformer_layer")
   
-    _layer.extend(["noop","noop", "embed2v", "noop"])
+    # _layer.extend(["noop","noop", "embed2v", "noop"])
     _num_layer = len(_layer)
       
     # build layer activation lookup table. Noop exatly has the same activation as the previous op.
@@ -152,16 +153,18 @@ def get_cost_e(cluster_info, model_config, parallel_config, amp_config):
     pp = parallel_config["pp"]
 
     profile_cost = amp_config["profile_cost"]
-    _layer = ["embed2h", "noop"]
+    # _layer = ["embed2h", "noop"]
+    _layer = []
     for i in range(int(n.item())):
         _layer.append("transformer_layer")
     
-    _layer.extend(["noop","noop", "embed2v", "noop"])
+    # _layer.extend(["noop","noop", "embed2v", "noop"])
     _num_layer = len(_layer)
             
     cost_e = np.zeros((int(dp.item()), _num_layer))
 
     for i in range(int(dp.item())):
+        print("num_layer,profile_cost:",_num_layer,"166line",len(profile_cost["1"]))
         assert _num_layer == len(profile_cost["1"]), "predicted number of layers not equal to actual"
         
         # mp_avg is only used with placement ablation study. Ignore it in reproducing main results.
@@ -204,11 +207,12 @@ def dp_cost(config, cluster_info,model_config, parallel_config, amp_config, part
     dp = parallel_config["dp"]
     pp = parallel_config["pp"]
     
-    _layer = ["embed2h", "noop"]
+    # _layer = ["embed2h", "noop"]
+    _layer = []
     for i in range(int(n.item())):
         _layer.append("transformer_layer")
     
-    _layer.extend(["noop","noop", "embed2v", "noop"])
+    # _layer.extend(["noop","noop", "embed2v", "noop"])
     _num_layer = len(_layer)
         
     # First translate to deepspeed partition form
@@ -217,6 +221,7 @@ def dp_cost(config, cluster_info,model_config, parallel_config, amp_config, part
     for i in range(len(partition)):
         ds_partition.append(ds_partition[-1]+partition[i])
     #print(ds_partition, _num_layer)
+    print("ds_partition:",ds_partition[-1])
     assert ds_partition[-1] == _num_layer
     assert len(ds_partition) == pp + 1
                 

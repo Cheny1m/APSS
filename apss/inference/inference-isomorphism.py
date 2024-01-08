@@ -72,8 +72,8 @@ def inference():
     if not os.path.exists(dir_path):
         os.mkdir(dir_path)
 # number of GPU per node, number of nodes
-    M = 4
-    N = 4
+    M = 2
+    N = 2
 
     # # inter-node bandwidth, intra-node bandwidth
     # for i in range(N-1):
@@ -147,7 +147,6 @@ def inference():
         return models
     
 
-    load_all_model()
     def pi2partition(pi,node_size):
         pi.sort()
         # print(pi)
@@ -208,8 +207,8 @@ def inference():
         # n_cost_c = pow(10,count_c-1) * cost_c
         n_cost_e = cost_e/cost_e.max()#pow(10,count_e-1) * cost_e
         n_cost_c = cost_c/cost_c.max()#pow(10,count_c-1) * cost_c
-        print(n_cost_e)
-        print(n_cost_c)
+        # print(n_cost_e)
+        # print(n_cost_c)
         # for j in range(cost_e.size(0)-1):
         for j in range(cost_e.shape[0]-1):
             new_sample.append([sum(n_cost_e[:j+1]),sum(n_cost_e[j+1:])]+n_cost_c[j,:].tolist())
@@ -221,7 +220,6 @@ def inference():
 
         model = models[k]
         set_decode_type(model, "greedy")
-        
         cost, log_likelihood, pi = model(input_data, ori_data, cost_c_data, return_pi=True)
         # print(pi)
         # part = pi2partition(pi[0].tolist(),cost_e.size(0))
@@ -264,16 +262,22 @@ def inference():
                 # known_cost directory stores the real forward time with correponding model parallel degree.
                 
                 # known_record = f"/home/oj/distributed_floder/research/AMP/src/known_cost/{self.model_type}_P3_{mp_size}"
-                known_record = f"/root/cym/AMP/src/known_cost/{self.model_type}_P3_{mp_size}"
+                # known_record = f"/root/cym/AMP/src/known_cost/{self.model_type}_P3_{mp_size}"
+                known_record = f"/root/APSS/resource/known_cost/{self.model_type}_P3_{mp_size}"
                 
                 cur_profile_cost1 = 3 * np.load(f"{known_record}.npy")
                 
                 # known_record = f"/home/oj/distributed_floder/research/AMP/src/known_cost/{self.model_type}_G4_{mp_size}"
-                known_record = f"/root/cym/AMP/src/known_cost/{self.model_type}_P3_{mp_size}"
+                # known_record = f"/root/cym/AMP/src/known_cost/{self.model_type}_P3_{mp_size}"
+                known_record = f"/root/APSS/resource/known_cost/{self.model_type}_P3_{mp_size}"
+
                 cur_profile_cost2 = 3 * np.load(f"{known_record}.npy")
 
                 # average between different speed of GPUs
                 cur_profile_cost = cur_profile_cost1 * 0.75 + cur_profile_cost2 * 0.25
+                cur_profile_cost = cur_profile_cost[2:26]
+                print("cur_profile_cost:",cur_profile_cost)
+
                 self.profile_cost[str(mp_size)] = cur_profile_cost
                 #print(f"using profile cost with mp_size {mp_size}: {cur_profile_cost}")
         
@@ -346,8 +350,8 @@ def inference():
 
             if int(B.item()) == 1:
                 partition, _ = pipe_uniform(int(L.item()), int(pp.item()))
-                partition[0] += 2
-                partition[-1] += 4
+                # partition[0] += 2
+                # partition[-1] += 4
             else:
                 # partition, _ = pipe_ast(len(cost_e), np.asarray(cost_e), np.asarray(cost_c), int(pp.item()), int(B.item()))
                 # partition, _ = pipe_rl_sample(self.models, len(cost_e), cost_e, cost_c, int(pp.item()), int(B.item()))
@@ -413,5 +417,8 @@ def inference():
         for item in sorted_settings:
             fp.write(f"rank {sorted_settings.index(item)}: {item}")
             fp.write("\n")
+    return partition
+partition = inference()
 
-inference()
+os.environ['PARTITION'] = partition
+bash gpt2.sh

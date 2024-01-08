@@ -40,15 +40,17 @@ class MultiHeadAttention(nn.Cell):
     def construct(self, q, h=None, mask=None):
         if h is None:
             h = q  # compute self-attention
-
+        
         batch_size, graph_size, input_dim = h.shape
         n_query = q.shape[1]
         assert q.shape[0] == batch_size
         assert q.shape[2] == input_dim
         assert input_dim == self.input_dim, "Wrong embedding dimension of input"
 
-        hflat = h.contiguous().view(-1, input_dim)
-        qflat = q.contiguous().view(-1, input_dim)
+        # hflat = h.contiguous().view(-1, input_dim)
+        # qflat = q.contiguous().view(-1, input_dim)
+        hflat = h.reshape(-1, input_dim)
+        qflat = q.reshape(-1, input_dim)
 
         shp = (self.n_heads, batch_size, graph_size, -1)
         shp_q = (self.n_heads, batch_size, n_query, -1)
@@ -140,10 +142,6 @@ class GraphAttentionEncoder(nn.Cell):
 
         self.init_embed = nn.Dense(node_dim, embed_dim) if node_dim is not None else None
 
-        # layers = []
-        # for _ in range(n_layers):
-        #     layers.append(MultiHeadAttentionLayer(n_heads, embed_dim, feed_forward_hidden, normalization))
-        # self.layers = nn.SequentialCell(layers)
         self.layers = nn.SequentialCell(*(
             MultiHeadAttentionLayer(n_heads, embed_dim, feed_forward_hidden, normalization)
             for _ in range(n_layers)

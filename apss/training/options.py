@@ -13,8 +13,8 @@ def get_options(args=[]):
     parser.add_argument('--num_split', type=int, default=15, help="The size of the problem graph")
     parser.add_argument('--node_size', type=int, default=30, help="The size of the problem graph")
     parser.add_argument('--batch_size', type=int, default=512, help='Number of instances per batch during training')
-    parser.add_argument('--epoch_size', type=int, default=1280000, help='1280000Number of instances per epoch during training')
-    parser.add_argument('--val_size', type=int, default=10000,
+    parser.add_argument('--epoch_size', type=int, default=12800, help='1280000Number of instances per epoch during training')
+    parser.add_argument('--val_size', type=int, default=1000,
                         help='Number of instances used for reporting validation performance')
     parser.add_argument('--val_dataset', type=str, default=None, help='Dataset file to use for validation')
 
@@ -35,7 +35,7 @@ def get_options(args=[]):
     parser.add_argument('--lr_decay', type=float,
      default=1.0, help='Learning rate decay per epoch')
     parser.add_argument('--eval_only', action='store_true', help='Set this value to only evaluate model')
-    parser.add_argument('--n_epochs', type=int, default=100, help='The number of epochs to train')
+    parser.add_argument('--n_epochs', type=int, default=1, help='The number of epochs to train')
     parser.add_argument('--seed', type=int, default=1234, help='Random seed to use')
     parser.add_argument('--max_grad_norm', type=float, default=1.0,
                         help='Maximum L2 norm for gradient clipping, default 1.0 (0 to disable clipping)')
@@ -62,7 +62,7 @@ def get_options(args=[]):
                         help='Set to decrease memory usage by checkpointing encoder')
 
     # Misc
-    parser.add_argument('--log_step', type=int, default=200, help='Log info every log_step steps')
+    parser.add_argument('--log_step', type=int, default=100, help='Log info every log_step steps')
     parser.add_argument('--log_dir', default='logs', help='Directory to write TensorBoard information to')
     parser.add_argument('--run_name', default='run', help='Name to identify the run')
     parser.add_argument('--output_dir', default='outputs', help='Directory to write output models to')
