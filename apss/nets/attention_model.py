@@ -148,7 +148,7 @@ class AttentionModel(nn.Cell):
         if temp is not None:
             self.temp = temp
 
-    # @ms.jit
+    @ms.jit
     def construct(self, input, ori_input, cost_c_input, return_pi=False):
         # encoder
         # embeddings, _ = self.embedder(self._init_embed(input))

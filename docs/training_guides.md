@@ -70,6 +70,14 @@ docker exec -it apss /bin/bash
 cd ~/APSS
 ```
 
+## 环境构建(Ascend)
+Requirements:  
+ - Python >= 3.7
+ - Mindspore >= 2.2.0 [(Help)](https://www.mindspore.cn/install)
+
+164:source /home/kkr/env.sh
+# 
+
 ## 程序运行
 ### 设置运行环境的context
 本步骤主要设置运行时的目标设备和模式，默认目标设备为`GPU`，默认运行模式为`PYNATIVE_MODE`。如需查看详情和修改目标设备及运行模式，请在[config.json](/config.json)中修改。
