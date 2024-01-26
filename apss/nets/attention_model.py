@@ -1,4 +1,6 @@
 import math
+import psutil
+import os
 
 import mindspore as ms
 import mindspore.nn as nn
@@ -148,7 +150,7 @@ class AttentionModel(nn.Cell):
         if temp is not None:
             self.temp = temp
 
-    @ms.jit
+    # @ms.jit
     def construct(self, input, ori_input, cost_c_input, return_pi=False):
         # encoder
         # embeddings, _ = self.embedder(self._init_embed(input))
@@ -158,17 +160,18 @@ class AttentionModel(nn.Cell):
         # embeddings.shape = [1000,7,128]
 
         # decoder、Context embedding、Calculation of log-probabilities
-        _log_p, pi = self._inner(input, embeddings)
-        # cost, mask = self.problem.get_costs(ori_input, cost_c_input, input, pi)
-        # ll = self._calc_log_likelihood(_log_p, pi, mask)
+        _log_p, pi = self._inner(input, embeddings) # 增长0.5MB
+        cost, mask = self.problem.get_costs(ori_input, cost_c_input, input, pi) # 增长4MB
+        # cost, mask = get_pp_costs(ori_input, cost_c_input, input, pi)
+        ll = self._calc_log_likelihood(_log_p, pi, mask)
     
-        # if return_pi:
-        #     return cost, ll, pi
-        # return cost, ll
-
         if return_pi:
-            return _log_p, pi
-        return _log_p
+            return cost, ll, pi
+        return cost, ll
+
+        # if return_pi:
+        #     return _log_p, pi
+        # return _log_p
 
 
     def beam_search(self, *args, **kwargs):

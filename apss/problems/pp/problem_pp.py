@@ -1,6 +1,8 @@
 import os
 import pickle
 import numpy as np
+import psutil
+import os
 
 from mindspore import Tensor
 import mindspore as ms
@@ -33,7 +35,7 @@ def get_partition_cost_sequence(data, cost_c_data, partition):
     p = [s[0] - 1]
     for i in range(1, pp):
         p.append(p[i - 1] + s[i])
-    lens = ops.reshape((data[:p[0] + 1]).sum(),(-1,1))
+    lens = ops.reshape((data[:p[0] + 1]).sum(),(-1,1)) # 内存增长
     for i in range(len(s) - 1):
         lens = ops.concat([lens,ops.reshape((data[p[i] + 1:p[i + 1] + 1]).sum(),(-1,1))])
     max_sub_seq_cost = lens.reshape(-1,).max()
@@ -53,12 +55,12 @@ def get_pp_costs(ori_dataset, cost_c_dataset, dataset, pi):
         partition = pi2partition(position, node_size) 
         costs.append(get_partition_cost_sequence(data, cost_data, partition))
 
-    costs_np= np.array([item.asnumpy() for item in costs])
-    costs_tensor = Tensor(costs_np)[:, None]
-    # costs = Tensor(costs)[:,None]
-    
-    # return costs, None
-    return costs_tensor, None
+    # costs_np= np.array([item.asnumpy() for item in costs])
+    # costs_tensor = Tensor(costs_np)[:, None]
+    # return costs_tensor, None
+        
+    costs = ops.stack(costs)[:,None]
+    return costs, None
 
 def make_pp_dataset(*args, **kwargs):
     return PPDataset(*args, **kwargs)
@@ -96,10 +98,12 @@ class PP(object):
             partition = pi2partition(position, node_size) 
             costs.append(get_partition_cost_sequence(data, cost_data, partition))
             
-        costs_np= np.array([item.asnumpy() for item in costs])
-        costs_tensor = Tensor(costs_np)[:, None]
-        # costs_tensor = Tensor(costs)[:,None]
-        return costs_tensor, None
+        # costs_np= np.array([item.asnumpy() for item in costs])
+        # costs_tensor = Tensor(costs_np)[:, None]
+        # return costs_tensor, None
+            
+        costs = ops.stack(costs)[:,None]
+        return costs, None
 
     # 返回一个PPDataset实例
     @staticmethod
@@ -175,7 +179,7 @@ class PP(object):
 
 
 # 由于MindSpore框架对于单算子的执行只支持单线程操作，但是在自定义数据集中使用了Tensor的运算操作，即会调到框架的算子执行，由于数据集的处理使用了多线程操作，因此导致整体的执行顺序错乱，出现空指针的错误。
-# 将自定义数据集中的Tensor操作改为使用原生numpy进行计算
+# 将自定义数据集中的Tensor操作改为使用原生numpy进行计算,从而保证可以多线程执行
 import numpy as np
 import os
 import pickle

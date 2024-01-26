@@ -115,9 +115,15 @@ class StatePP:
 
         if self.visited_.dtype == ms.uint8:
             # Mindspore1.10.1实现
-            updates = mnp.ones(prev_a.shape,ms.uint8)
-            visited_ = ops.tensor_scatter_elements(self.visited_, prev_a[:, :, None] ,updates[:,:,None],-1)
-            # visited_ = self.visited_.scatter(-1, prev_a[:, :, None], 1)
+            # updates = mnp.ones(prev_a.shape,ms.uint8)
+            # print("test info: self.visited_.dtpye:",self.visited_.dtype)
+            # visited_ = ops.tensor_scatter_elements(self.visited_, prev_a[:, :, None] ,updates[:,:,None],-1)
+
+            # Torch中的实现为scatter，而非带有gather操作的scatter，所以不应该使用tensor_scatter_elements，且这个算子会在Ascend中产生不支持
+            # Mindspore2.2实现，Ascend实现(会存在问题 https://www.mindspore.cn/docs/zh-CN/r2.2/api_python/ops/mindspore.ops.tensor_scatter_elements.html#mindspore.ops.tensor_scatter_elements)
+            # 一个可能的实现是将self.visited_.dtype改为int8，而非unit8
+            updates = mnp.ones(prev_a.shape,ms.int8)
+            visited_ = self.visited_.scatter(-1, prev_a[:, :, None], updates[:,:,None])
         else:
             visited_ = mask_long_scatter(self.visited_, prev_a)  # You will need to implement mask_long_scatter for MindSpore
 

@@ -10,10 +10,113 @@ from mindspore.communication import init,get_rank,get_group_size
 
 from apss.nets.attention_model import AttentionModel
 from apss.utils import load_problem
+from apss.utils.reinforce_loss import CustomReinforceLoss
 
 from .options import get_options
 from .train_mc import train_epoch, validate
 from .reinforce_baselines_pp import  RolloutBaselinePP,WarmupBaseline,NoBaseline
+
+import gc
+import os
+import time
+from tqdm import tqdm
+import math
+import random
+import json
+import psutil
+import sys
+
+import mindspore.dataset as ds
+import mindspore.ops as ops
+import mindspore as ms
+from mindspore import save_checkpoint
+from mindspore import Tensor
+import mindspore.common.dtype as mstype
+from mindspore.communication.management import init
+
+from apss.nets.attention_model import set_decode_type
+from apss.utils.log_utils import log_values
+from apss.problems.pp.problem_pp import get_pp_costs
+from apss.nets.attention_model import _calc_log_likelihood
+
+from .test import test
+from .test import get_partiton_cost_sequence
+
+from apss.utils.reinforce_loss import CustomReinforceLoss
+
+from memory_profiler import profile
+
+def pi2partition(pi,node_size):
+    pi.sort()
+    assert node_size > pi[-1]+1, print(node_size,pi)
+    piadd1 = [i+1 for i in pi]
+    piadd1 = [0] + piadd1 + [node_size]
+    partition = []
+    for i, p in enumerate(piadd1):
+        if i ==0:
+            continue
+        partition.append(p - piadd1[i-1])
+    return partition
+
+# MindSpore's DataParallel mode provides direct access to the model's network.
+def get_inner_model(model):
+    # parallel_mode = context.get_auto_parallel_context("parallel_mode")
+    # if parallel_mode in (ParallelMode.SEMI_AUTO_PARALLEL, ParallelMode.AUTO_PARALLEL):
+    #     return model._network
+    # else:
+    #     return model
+    return model
+
+def validate(model, dataset, opts):
+    print('Validating...')
+    cost,pi = rollout(model, dataset, opts)
+    avg_cost = cost.mean()
+    print('Validation overall avg_cost: {} +- {}'.format(
+        avg_cost, cost.std() / math.sqrt(len(cost))))
+    return avg_cost
+
+# @profile
+def rollout(model, dataset, opts):
+    set_decode_type(model, "greedy")
+    model.set_train(False)
+
+    def eval_model_bat(bat, ori_bat, cost_c_bat):
+        # cost, _, pi = model(Tensor(bat, ms.float32),
+        #                     Tensor(ori_bat, ms.float32),
+        #                     Tensor(cost_c_bat, ms.float32),
+        #                     return_pi = True)
+        # return cost,pi
+        cost, _, pi = model(bat,ori_bat,cost_c_bat,return_pi = True) # 内存增加
+        return cost,pi
+
+        # # _log_p,pi = model(Tensor(bat, ms.float32), Tensor(ori_bat, ms.float32), Tensor(cost_c_bat, ms.float32),return_pi = True)
+        # _log_p,pi = model(bat,ori_bat,cost_c_bat,return_pi = True)
+        # cost,mask = get_pp_costs(ori_bat,cost_c_bat,bat,pi)
+        # # ll = _calc_log_likelihood(_log_p,pi,mask)
+        # return cost,pi
+
+    bats = []
+    pis = []
+
+    ms_dataset = ds.GeneratorDataset(source=dataset,column_names=["data", "ori_data", "cost_c_data"],num_parallel_workers=1)
+    ms_dataset = ms_dataset.batch(batch_size=opts.eval_batch_size) 
+    # for data in tqdm(ms_dataset.create_dict_iterator(),total = math.ceil(len(dataset) / opts.eval_batch_size)):
+    #     cost,pi = eval_model_bat(data["data"],data["ori_data"],data["cost_c_data"])
+    #     bats.append(cost)
+    #     pis.append(pi)
+
+    for bat, ori_bat,cost_c_bat in tqdm(ms_dataset.create_tuple_iterator(),total = math.ceil(len(dataset) / opts.eval_batch_size)):# # 内存增长
+        cost, pi = eval_model_bat(bat,ori_bat,cost_c_bat)
+        bats.append(cost)
+        pis.append(pi)
+
+    bats = ops.concat(bats, 0)
+    pis = ops.concat(pis, 0)
+    return bats, pis.asnumpy()
+
+def clip_grad_norms(param_groups, max_norm=math.inf):
+    grad_norms = ops.clip_by_global_norm(param_groups,max_norm if max_norm > 0 else math.inf)
+    return grad_norms,grad_norms
 
 with open('config.json', 'r') as f:
     config = json.load(f)
@@ -21,6 +124,11 @@ RESOURCE_DIR = config["RESOURCE_DIR"]
 CONTEXT_MODE = config["CONTEXT_MODE"]
 DEVICE_TARGET = config["DEVICE_TARGET"]
     
+
+with open('config.json', 'r') as f:
+    config = json.load(f)
+RESOURCE_DIR = config["RESOURCE_DIR"]
+
 
 def run(opts):
 
@@ -36,7 +144,7 @@ def run(opts):
     # device_target = "GPU" if opts.use_cuda else "CPU"
     # ms.set_context(device_target=device_target, device_id = 1, mode=ms.PYNATIVE_MODE)
 
-    ms.set_context(device_target=DEVICE_TARGET, device_id = 0, mode=CONTEXT_MODE)
+    # ms.set_context(device_target=DEVICE_TARGET, device_id = 0, mode=CONTEXT_MODE)
     print("device:",ms.get_context("device_target"),"\nmode:",ms.get_context("mode"))
 
     # Optionally configure tensorboard/ install tensorflow and tensorboard_logger. mindinsight can be uesed for this.
@@ -175,7 +283,7 @@ def run(opts):
         opts.epoch_start = epoch_resume + 1
         
     print("采用的baseline是：", baseline)
-    
+    loss_fn = CustomReinforceLoss()
     if opts.eval_only:
         validate(model, val_dataset, opts)
     else:
@@ -184,6 +292,7 @@ def run(opts):
                 model,
                 optimizer,
                 baseline,
+                loss_fn,
                 lr_scheduler,
                 epoch,
                 val_dataset,
