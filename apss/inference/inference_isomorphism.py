@@ -1,10 +1,13 @@
 import os
 import sys
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_dir = os.path.dirname(current_dir)
+sys.path.append(project_dir)
 # pip install tqdm
 # from test import get_partiton_cost_sequence, pipe_ast,pi2partition
 import numpy as np
-from apss.nets.attention_model import set_decode_type
+from nets.attention_model import set_decode_type
 import time
 import json
 import pprint as pp
@@ -16,8 +19,8 @@ import mindspore.nn.optim as optim
 from mindspore import Tensor
 # pip install tensorboard_logger
 
-from apss.nets.attention_model import AttentionModel
-from apss.utils import load_problem, load_model, load_model_temp#,torch_load_cpu
+from nets.attention_model import AttentionModel
+from utils import load_problem, load_model, load_model_temp#,torch_load_cpu
 import math
 import time
 from collections import defaultdict
@@ -58,13 +61,22 @@ import mindspore.context as context
 import numpy as np
 
 
+
 # home_path = "/home/oj/distributed_floder/research/AMP" #os.environ['HOME']
 # home_path = "/root/cym/AMP"
 # home_path = '../../../data'
 # dir_path = os.path.join(home_path, 'apss_main_logs')
 # if not os.path.exists(dir_path):
 #     os.mkdir(dir_path)
-def inference():
+def inference(
+    M=2,
+    N=2,
+    hidden_size = 1024,
+    sequence_length = 1024,
+    num_layers = 24,
+    vocab_size = 52256,
+    type_model = "gpt2"
+):
     with open('config.json', 'r') as f:
         config = json.load(f)
     RESOURCE_DIR = config["RESOURCE_DIR"]
@@ -72,9 +84,10 @@ def inference():
     if not os.path.exists(dir_path):
         os.mkdir(dir_path)
 # number of GPU per node, number of nodes
-    M = 2
-    N = 2
-
+# parameter
+    # M = 2
+    # N = 2
+    # print(M)
     # # inter-node bandwidth, intra-node bandwidth
     # for i in range(N-1):
     #         cluster_info[i] = [mindspore.nmp([10 * 1e9 / 32]).float(), torch.tensor([170 * 1e9 / 32]).float()]
@@ -86,21 +99,28 @@ def inference():
     #                 "vocab_size":torch.tensor([52256]).float(),
     #                 "type":"gpt2"}
 
-
     cluster_info = {}
-
+    print(N)
     for i in range(N - 1):
         cluster_info[i] = [mnp.array([10 * 1e9 / 32]).astype(mnp.float32), mnp.array([170 * 1e9 / 32]).astype(mnp.float32)]
     cluster_info[N - 1] = [mnp.array([50 * 1e9 / 32]).astype(mnp.float32), mnp.array([50 * 1e9 / 32]).astype(mnp.float32)]
 
-    model_config = {
-        "hidden_size": mnp.array([1024]).astype(mnp.float32),
-        "sequence_length": mnp.array([1024]).astype(mnp.float32),
-        "num_layers": mnp.array([24]).astype(mnp.float32),
-        "vocab_size": mnp.array([52256]).astype(mnp.float32),
-        "type": "gpt2"
-    }
+# parameter
+    # model_config = {
+    #     "hidden_size": mnp.array([1024]).astype(mnp.float32),
+    #     "sequence_length": mnp.array([1024]).astype(mnp.float32),
+    #     "num_layers": mnp.array([24]).astype(mnp.float32),
+    #     "vocab_size": mnp.array([52256]).astype(mnp.float32),
+    #     "type": "gpt2"
+    # }
 
+    model_config = {
+        "hidden_size": mnp.array([hidden_size]).astype(mnp.float32),
+        "sequence_length": mnp.array([sequence_length]).astype(mnp.float32),
+        "num_layers": mnp.array([num_layers]).astype(mnp.float32),
+        "vocab_size": mnp.array([vocab_size]).astype(mnp.float32),
+        "type": type_model
+    }
 
     config_h = int((model_config["hidden_size"]).item())
     config_n = int(model_config["num_layers"].item())
@@ -418,7 +438,4 @@ def inference():
             fp.write(f"rank {sorted_settings.index(item)}: {item}")
             fp.write("\n")
     return partition
-partition = inference()
 
-os.environ['PARTITION'] = partition
-bash gpt2.sh
