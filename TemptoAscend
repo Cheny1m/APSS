@@ -1,0 +1,23 @@
+def get_partition_cost_sequence(data, cost_c_data, partition):
+    p = ops.concat((Tensor([-1]), ops.cumsum(partition)[:-1]))
+    lens = ops.reshape(ops.reduce_sum(data[:p[0] + 1]), (-1, 1))
+    for i in range(1, ops.shape(partition)[0]):
+        lens = ops.concat((lens, ops.reshape(ops.reduce_sum(data[p[i] + 1:p[i + 1] + 1]), (-1, 1))))
+    max_sub_seq_cost = ops.reduce_max(lens)
+    for i in range(1, ops.shape(partition)[0]):
+        max_sub_seq_cost += cost_c_data[p[i], i]
+    return max_sub_seq_cost
+
+
+def get_pp_costs(ori_dataset, cost_c_dataset, dataset, pi):
+    node_size = dataset.shape[1] + 1
+    costs = []
+    for idx in range(ops.shape(pi)[0]):
+        position = pi[idx]
+        data = ori_dataset[idx, :, 0]
+        cost_data = cost_c_dataset[idx]
+        partition = pi2partition(position, node_size)
+        costs.append(get_partition_cost_sequence(data, cost_data, partition))
+
+    costs_tensor = ops.stack(costs)[:, None]
+    return costs_tensor, None
