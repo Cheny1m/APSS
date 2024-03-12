@@ -1,0 +1,18 @@
+attention_model.py 
+1.修改网络和之前pytorch一样
+2.240行修改state
+3. 408
+        if num_steps == 1:
+            if state.i.item() == 0:
+                return ops.broadcast_to(self.W_placeholder[None, None, :], (batch_size, 1, self.W_placeholder.shape[-1]))
+            else:
+                return ops.gather_elements(embeddings,1,ops.broadcast_to(current_node[:,:,None], (batch_size , 2 , embeddings.shape[-1]))).reshape(batch_size, 1, -1)
+        embeddings_per_step = ops.gather_elements(embeddings,1,ops.broadcast_to(current_node[:, 1:,None], (batch_size , num_steps - 1 , embeddings.shape[-1])))
+        return ops.concat((ops.broadcast_to(self.W_placeholder[None, None, :], (batch_size, 1, self.W_placeholder.shape[-1])),
+            ops.concat((ops.broadcast_to(embeddings_per_step[:, 0:1, :], (batch_size, num_steps - 1, embeddings.shape[-1])),embeddings_per_step), 2)
+        ), 1)
+
+problem里面改变cost计算、unit8、119 visited_ = self.visited_.scatter(-1, prev_a[:, :, None], updates[:,:,None])
+
+train_mc里面：
+修改网络计算模式、去除无关的tensor的创建
