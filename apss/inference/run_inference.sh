@@ -1,0 +1,1 @@
+python -m apss.inference.run_inference --type "gpt2"

@@ -10,76 +10,78 @@ import mindspore.ops as ops
 
 from apss.utils.beam_search import beam_search
 
-from.state_pp import StatePP,initialize_pp_state
+from.state_pp import StatePP # ,initialize_pp_state
 
 # @ms.jit
-def pi2partition(pi,node_size):
-    pi.sort()
-    # print(pi)
-    assert node_size > pi[-1]+1, print(node_size,pi)
-    piadd1 = [i+1 for i in pi]
-    piadd1 = [0] + piadd1 + [node_size]
+# def pi2partition(pi,node_size):
+#     pi.sort()
+#     # print(pi)
+#     assert node_size > pi[-1]+1, print(node_size,pi)
+#     piadd1 = [i+1 for i in pi]
+#     piadd1 = [0] + piadd1 + [node_size]
 
-    partition = []
-    for i, p in enumerate(piadd1):
-        if i ==0:
-            continue
-        partition.append(p - piadd1[i-1])
-    return partition
+#     partition = []
+#     for i, p in enumerate(piadd1):
+#         if i ==0:
+#             continue
+#         partition.append(p - piadd1[i-1])
+#     return partition
 
-# @ms.jit
-def get_partition_cost_sequence(data, cost_c_data, partition):
-    # print("data:",data,type(data),data.dtype,"cost_c:",cost_c_data,"partition:",partition)
-    pp = len(partition)
-    s = partition
-    p = [s[0] - 1]
-    for i in range(1, pp):
-        p.append(p[i - 1] + s[i])
-    lens = ops.reshape((data[:p[0] + 1]).sum(),(-1,1)) # 内存增长
-    for i in range(len(s) - 1):
-        lens = ops.concat([lens,ops.reshape((data[p[i] + 1:p[i + 1] + 1]).sum(),(-1,1))])
-    max_sub_seq_cost = lens.reshape(-1,).max()
-    for i in range(pp - 1):
-        max_sub_seq_cost += cost_c_data[p[i]][i]
-    return max_sub_seq_cost
+# # @ms.jit
+# def get_partition_cost_sequence(data, cost_c_data, partition):
+#     # print("data:",data,type(data),data.dtype,"cost_c:",cost_c_data,"partition:",partition)
+#     pp = len(partition)
+#     s = partition
+#     p = [s[0] - 1]
+#     for i in range(1, pp):
+#         p.append(p[i - 1] + s[i])
+#     lens = ops.reshape((data[:p[0] + 1]).sum(),(-1,1)) # 内存增长
+#     for i in range(len(s) - 1):
+#         lens = ops.concat([lens,ops.reshape((data[p[i] + 1:p[i + 1] + 1]).sum(),(-1,1))])
+#     max_sub_seq_cost = lens.reshape(-1,).max()
+#     for i in range(pp - 1):
+#         max_sub_seq_cost += cost_c_data[p[i]][i]
+#     return max_sub_seq_cost
 
-# @ms.jit
-def get_pp_costs(ori_dataset, cost_c_dataset, dataset, pi):
-    node_size = dataset.shape[1] + 1  # 这里输入的node数量是nodesize-1数量
-    costs = []
-    for idx in range(pi.shape[0]):
-        position = pi[idx, :]
-        position = position.asnumpy().tolist()
-        data = ori_dataset[idx, :, 0]
-        cost_data = cost_c_dataset[idx, ...]
-        partition = pi2partition(position, node_size) 
-        costs.append(get_partition_cost_sequence(data, cost_data, partition))
+# # @ms.jit
+# def get_pp_costs(ori_dataset, cost_c_dataset, dataset, pi):
+#     node_size = dataset.shape[1] + 1  # 这里输入的node数量是nodesize-1数量
+#     pi,_ = ops.sort(pi,-1)
+#     pi =ops.cast(pi,ms.int32)
+#     node_size_tensor = ops.full((pi.shape[0],1),node_size-1,dtype=ms.int32)
+#     p = ops.concat((pi,node_size_tensor),-1)
+#     data = ops.cumsum(ori_dataset.squeeze(-1),-1)
+#     index_data = ops.gather(data,p,1,1)
+#     index_data = ops.cast(index_data,ms.int32)
+#     index_data = ops.concat((ops.zeros((index_data.shape[0],1),dtype=ms.int32),index_data),-1)
+#     max_sub_seq_cost,_  = ops.max(ops.diff(index_data),-1)
+#     # indices = ops.tile(ops.arange(pi.shape[-1]),(cost_c_dataset.shape[0],1))
+#     indices = ops.tile(ops.arange(15),(cost_c_dataset.shape[0],1))
+#     cost_data = cost_c_dataset.reshape(cost_c_dataset.shape[0],cost_c_dataset.shape[1]*cost_c_dataset.shape[2])
+#     indices1 = pi*pi.shape[-1] + indices
+#     cost_cost = ops.sum(ops.gather_elements(cost_data, 1,indices1),-1)
+#     max_sub_seq_cost += cost_cost
+#     return max_sub_seq_cost,None
 
-    # costs_np= np.array([item.asnumpy() for item in costs])
-    # costs_tensor = Tensor(costs_np)[:, None]
-    # return costs_tensor, None
-        
-    costs = ops.stack(costs)[:,None]
-    return costs, None
+# def make_pp_dataset(*args, **kwargs):
+#     return PPDataset(*args, **kwargs)
 
-def make_pp_dataset(*args, **kwargs):
-    return PPDataset(*args, **kwargs)
+# def make_pp_state(*args, **kwargs):
+#     # return initialize_pp_state(*args, **kwargs)
+#     return StatePP.initialize(*args, **kwargs)
 
-def make_pp_state(*args, **kwargs):
-    return initialize_pp_state(*args, **kwargs)
-
-# 使用beam搜索进行策略搜索
-def beam_pp_search(input, beam_size, expand_size=None, compress_mask=False, model=None, max_calc_batch_size=4096):
-    assert model is not None, "Provide model"
-    fixed = model.precompute_fixed(input)
-    def propose_expansions(beam):
-        return model.propose_expansions(
-            beam, fixed, expand_size, normalize=True, max_calc_batch_size=max_calc_batch_size
-        )
-    state = PP.make_state(
-        input, visited_dtype=ms.int64 if compress_mask else ms.uint8
-    )
-    return beam_search(state, beam_size, propose_expansions)
+# # 使用beam搜索进行策略搜索
+# def beam_pp_search(input, beam_size, expand_size=None, compress_mask=False, model=None, max_calc_batch_size=4096):
+#     assert model is not None, "Provide model"
+#     fixed = model.precompute_fixed(input)
+#     def propose_expansions(beam):
+#         return model.propose_expansions(
+#             beam, fixed, expand_size, normalize=True, max_calc_batch_size=max_calc_batch_size
+#         )
+#     state = PP.make_state(
+#         input, visited_dtype=ms.int64 if compress_mask else ms.uint8
+#     )
+#     return beam_search(state, beam_size, propose_expansions)
 
 # DPSN的数据生成
 class PP(object):
@@ -88,22 +90,40 @@ class PP(object):
     # 计算并返回成本
     @staticmethod
     def get_costs(ori_dataset, cost_c_dataset, dataset, pi):
+        # node_size = dataset.shape[1] + 1  # 这里输入的node数量是nodesize-1数量
+        # costs = []
+        # for idx in range(pi.shape[0]):
+        #     position = pi[idx, :]
+        #     position = position.asnumpy().tolist()
+        #     data = ori_dataset[idx, :, 0]
+        #     cost_data = cost_c_dataset[idx, ...]
+        #     partition = pi2partition(position, node_size) 
+        #     costs.append(get_partition_cost_sequence(data, cost_data, partition))
+            
+        # # costs_np= np.array([item.asnumpy() for item in costs])
+        # # costs_tensor = Tensor(costs_np)[:, None]
+        # # return costs_tensor, None
+            
+        # costs = ops.stack(costs)[:,None]
+        # return costs, None
+
+
         node_size = dataset.shape[1] + 1  # 这里输入的node数量是nodesize-1数量
-        costs = []
-        for idx in range(pi.shape[0]):
-            position = pi[idx, :]
-            position = position.asnumpy().tolist()
-            data = ori_dataset[idx, :, 0]
-            cost_data = cost_c_dataset[idx, ...]
-            partition = pi2partition(position, node_size) 
-            costs.append(get_partition_cost_sequence(data, cost_data, partition))
-            
-        # costs_np= np.array([item.asnumpy() for item in costs])
-        # costs_tensor = Tensor(costs_np)[:, None]
-        # return costs_tensor, None
-            
-        costs = ops.stack(costs)[:,None]
-        return costs, None
+        pi,_ = ops.sort(pi,-1)
+        pi =ops.cast(pi,ms.int32)
+        node_size_tensor = ops.full((pi.shape[0],1),node_size-1,dtype=ms.int32)
+        p = ops.concat((pi,node_size_tensor),-1)
+        data = ops.cumsum(ori_dataset.squeeze(-1),-1)
+        index_data = ops.gather(data,p,1,1)
+        index_data = ops.cast(index_data,ms.int32)
+        index_data = ops.concat((ops.zeros((index_data.shape[0],1),dtype=ms.int32),index_data),-1)
+        max_sub_seq_cost,_  = ops.max(ops.diff(index_data),-1)
+        indices = ops.tile(ops.arange(pi.shape[-1]),(cost_c_dataset.shape[0],1))
+        cost_data = cost_c_dataset.reshape(cost_c_dataset.shape[0],cost_c_dataset.shape[1]*cost_c_dataset.shape[2])
+        indices1 = pi*pi.shape[-1] + indices
+        cost_cost = ops.sum(ops.gather_elements(cost_data, 1,indices1),-1)
+        max_sub_seq_cost += cost_cost
+        return max_sub_seq_cost,None
 
     # 返回一个PPDataset实例
     @staticmethod
@@ -114,6 +134,7 @@ class PP(object):
     @staticmethod
     def make_state(*args, **kwargs):
         return StatePP.initialize(*args, **kwargs)
+        # return initialize_pp_state(*args, **kwargs)
 
     # 使用beam搜索进行策略搜索
     @staticmethod

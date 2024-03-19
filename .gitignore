@@ -16,3 +16,8 @@ dist
 
 # ir flie for Mindspore Graph mode 
 rank_0/
+
+# profile
+*dat
+profiler*
+output*.png

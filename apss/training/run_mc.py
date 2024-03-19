@@ -7,13 +7,14 @@ import mindspore as ms
 import mindspore.nn as nn
 import mindspore.communication as communication
 from mindspore.communication import init,get_rank,get_group_size
+from mindspore.amp import auto_mixed_precision
 
 from apss.nets.attention_model import AttentionModel
 from apss.utils import load_problem
 from apss.utils.reinforce_loss import CustomReinforceLoss
 
 from .options import get_options
-from .train_mc import train_epoch, validate
+from .train_mc import validate,train_all #,train_epoch
 from .reinforce_baselines_pp import  RolloutBaselinePP,WarmupBaseline,NoBaseline
 
 import gc
@@ -36,15 +37,13 @@ from mindspore.communication.management import init
 
 from apss.nets.attention_model import set_decode_type
 from apss.utils.log_utils import log_values
-from apss.problems.pp.problem_pp import get_pp_costs
+# from apss.problems.pp.problem_pp import get_pp_costs
 from apss.nets.attention_model import _calc_log_likelihood
 
 from .test import test
 from .test import get_partiton_cost_sequence
 
 from apss.utils.reinforce_loss import CustomReinforceLoss
-
-from memory_profiler import profile
 
 def pi2partition(pi,node_size):
     pi.sort()
@@ -194,6 +193,7 @@ def run(opts):
         num_split=opts.num_split,
         node_size=opts.node_size
     )
+
     print("The model has been initialized!")
     
     # get model form model or cell 
@@ -287,19 +287,30 @@ def run(opts):
     if opts.eval_only:
         validate(model, val_dataset, opts)
     else:
-        for epoch in range(opts.epoch_start, opts.epoch_start + opts.n_epochs):
-            train_epoch(
-                model,
-                optimizer,
-                baseline,
-                loss_fn,
-                lr_scheduler,
-                epoch,
-                val_dataset,
-                problem,
-                tb_logger,
-                opts
-            )
+        # for epoch in range(opts.epoch_start, opts.epoch_start + opts.n_epochs):
+        #     train_epoch(
+        #         model,
+        #         optimizer,
+        #         baseline,
+        #         loss_fn,
+        #         lr_scheduler,
+        #         epoch,
+        #         val_dataset,
+        #         problem,
+        #         tb_logger,
+        #         opts
+        #     )
+        train_all(
+            model,
+            optimizer,
+            baseline,
+            loss_fn,
+            lr_scheduler,
+            val_dataset,
+            problem,
+            tb_logger,
+            opts
+        )
 
 if __name__ == "__main__":
     run(get_options())

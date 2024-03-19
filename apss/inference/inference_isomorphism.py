@@ -7,7 +7,7 @@ sys.path.append(project_dir)
 # pip install tqdm
 # from test import get_partiton_cost_sequence, pipe_ast,pi2partition
 import numpy as np
-from nets.attention_model import set_decode_type
+from apss.nets.attention_model import set_decode_type
 import time
 import json
 import pprint as pp
@@ -19,7 +19,7 @@ import mindspore.nn.optim as optim
 from mindspore import Tensor
 # pip install tensorboard_logger
 
-from nets.attention_model import AttentionModel
+from apss.nets.attention_model import AttentionModel
 from utils import load_problem, load_model, load_model_temp#,torch_load_cpu
 import math
 import time
@@ -100,7 +100,6 @@ def inference(
     #                 "type":"gpt2"}
 
     cluster_info = {}
-    print(N)
     for i in range(N - 1):
         cluster_info[i] = [mnp.array([10 * 1e9 / 32]).astype(mnp.float32), mnp.array([170 * 1e9 / 32]).astype(mnp.float32)]
     cluster_info[N - 1] = [mnp.array([50 * 1e9 / 32]).astype(mnp.float32), mnp.array([50 * 1e9 / 32]).astype(mnp.float32)]
@@ -141,13 +140,13 @@ def inference(
 
     # save this name to env
     os.environ["apss_log_path"] = record_file
-    model_tmp_path = os.path.join(RESOURCE_DIR,"epoch-14.ckpt")
+    # model_tmp_path = os.path.join(RESOURCE_DIR,"epoch-14.ckpt")
     def load_all_model():
         models={}
-        # models[2], _ = load_model("./outputs/pp_30/pp30_2_rollout_20230402T234551/epoch-163.pt")
-        # models[4],_ =  load_model("./outputs/pp_30/pp30_4_rollout_20230327T000146/epoch-99.pt")
-        # models[8],_ = load_model("./outputs/pp_30/pp30_8_rollout_20230402T234340/epoch-134.pt")
-        # models[16],_=  load_model("./outputs/pp_30/pp30_16_rollout_20230402T234155/epoch-62.pt")
+        models[2], _ = load_model("/root/APSS/resource/outputs/pp_30/pp_30_2/pp_30_2_final.ckpt")
+        models[4],_ =  load_model("/root/APSS/resource/outputs/pp_30/pp_30_4/pp_30_4_final.ckpt")
+        models[8],_ = load_model("/root/APSS/resource/outputs/pp_30/pp_30_8/pp_30_8_final.ckpt")
+        models[16],_=  load_model("/root/APSS/resource/outputs/pp_30/pp_30_16/pp_30_16_final.ckpt")
         # models[2] = models[2].eval()
         # models[2] = models[2].cuda()
         # models[4] = models[4].eval()
@@ -156,10 +155,10 @@ def inference(
         # models[8] = models[8].cuda()
         # models[16] = models[16].eval()
         # models[16] = models[16].cuda()
-        models[2], _ = load_model_temp(model_tmp_path,1)
-        models[4],_ =  load_model_temp(model_tmp_path,3)
-        models[8],_ = load_model_temp(model_tmp_path,7)
-        models[16],_=  load_model_temp(model_tmp_path,15)
+        # models[2], _ = load_model_temp(model_tmp_path,1)
+        # models[4],_ =  load_model_temp(model_tmp_path,3)
+        # models[8],_ = load_model_temp(model_tmp_path,7)
+        # models[16],_=  load_model_temp(model_tmp_path,15)
         models[2] = models[2].set_train(False)
         models[4] = models[4].set_train(False)
         models[8] = models[8].set_train(False)

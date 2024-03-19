@@ -1,45 +1,51 @@
-# APSS Training Guide
-指导用户如何构建APSS项目的训练过程。
+# APSS Training Guide  【APSS训练指南】
+### [2024.03.19] 
+本指南指导用户如何构建APSS并行搜索策略项目的训练过程。
 
-本项目支持的后端设备为：
+本项目训练过程支持的后端设备为：
   * Ascend[(Help)](https://www.hiascend.com/)
   * GPU
   * CPU
 
-本指导文件以GPU环境为例。
+本指导文件以GPU环境和Ascend环境为例，所有代码在`Python = 3.7; Mindspore = 2.2.0`的`Nvidia GPU V100`和`Ascend NPU 910B`上通过测试。其中Ascend环境以`90.90.93.240`上的环境和代码为例。
 
 ## 目录
-- [项目清单](#项目清单)
-- [环境构建](#环境构建)
-  - [Method 1: With Mindspore's Official Image and Build from Source](#Method 1: With Mindspore's Official Image and Build from Source)
-  - [Method 2: With Our Docker Image](#Method 2: With Our Docker Image)
+- [1. 项目清单](#1-项目清单)
+- [2. 环境构建](#环境构建)
+  - [GPU](#1-gpu)
+    - [Method 1: 使用Mindspore官方镜像并从源码构建](#method-1-使用mindspore官方镜像并从源码构建)
+    - [Method 2: 用我们已经构建好的镜像](#method-2-使用我们已经构建好的镜像)
+  - Ascend
 - [程序运行](#程序运行)
 - [训练原理](#训练原理)
 
-## 项目清单
-  * 源代码 (https://github.com/Cheny1m/APSS)
+## 1. 项目清单
+  * 代码包APSS (APSS-graphmode.zip)
     - apss为项目源代码部分，inference表示推理部分代码，nets表示模型，problems表示我们抽象出来的拟训练问题，training表示训练部分代码，utils是一些工具类。
-    - apss.egg-info为打包后测试使用pip安装apss包后的元数据信息。
-    - docs是一些说明文档
-    - resource是数据包链接
-    -	scripts是一些自动化处理的脚本
-    -	config.json包含一些全局的配置。
-    - dockerfile为训练环境镜像构建文件。
+    - apss.egg-info为打包后测试使用pip安装apss包后的元数据信息，用户无需关心。
+    - docs是一些说明文档，包括项目训练说明以及一些常见的问题。
+    - resource是外部数据包`/..data`默认链接目录，主要包括日志、输出文件以及训练产生的ckpt，可由用户在`config.json`中配置。
+    -	scripts包含一些自动化处理的脚本。
+    -	config.json包含一些全局的配置，主要包括数据包目录配置、训练图启动模式，后端设备选择以及ID设置。
+    - dockerfile为`GPU`训练环境镜像构建文件。
     -	pyproject.toml为配置依赖启动文件。
 
-  * 数据包 
-    - 单独开辟了占用空间较大的数据存储，并在构建程序运行环境时，分别将源代码文件和数据包内容同时映射或放入运行环境中，数据包由代码文件中的/resource目录进行映射。即APSS/resource -->data
+  * 数据包data(APSS-graphmode.zip中与APSS同级)
+    - 单独开辟了占用空间较大的数据存储，并在构建程序运行环境时，分别将源代码文件和数据包内容同时映射或放入运行环境中，数据包由代码文件APSS中的/resource目录进行映射。即APSS/resource -->data，无需用户感知。
 
-  * Docker环境镜像 (https://hub.docker.com/repository/docker/cheny1m/apss-mindspore-gpu-cuda11.1/general)
-    - 使用Mindspore官方镜像后，使用pip进行安装。
+  * GPU环境的Docker镜像 (https://hub.docker.com/repository/docker/cheny1m/apss-mindspore-gpu-cuda11.1/general)
+    - 使用Mindspore官方镜像后，使用pip进行源码安装。
     - 使用[dockerfile](/dockerfile)构建我们已经打包好的容器或者从docker hub上拉取。
 
-## 环境构建(GPU)
+  * Mindspore在Ascend环境下暂未使用Docker[(Mindspore官方安装界面)]((https://www.mindspore.cn/install))，且所有训练测试均在杭研所`90.90.93.240`和`90.90.93.242`服务器既定的`Mindspore=2.2.0`环境下完成，所以本项目不包含Ascend环境下的Docker。仅能通过源码安装。
+
+## 2. 环境构建
 Requirements:  
  - Python >= 3.7
  - Mindspore >= 2.2.0 [(Help)](https://www.mindspore.cn/install)
 
-### Method 1: With Mindspore's Official Image and Build from Source
+## 2.1. GPU
+### Method 1: 使用Mindspore官方镜像并从源码构建
 启动容器：将`源代码目录APSS`（本例中为/home/upa1/cym/MindSpore/APSS）和`数据包目录data`（本例中为/home/upa1/cym/MindSpore/data）分别映射到容器内部的`APSS`目录（本例中为/root/APSS）和`APSS/resource`目录（本例中为/root/APSS/resource）
 ***注意：如果数据包的容器映射目录不为默认的`resource`，请在[config.json](/config.json)中修改`RESOURCE_DIR`的value为您定义的目录。***
 ```bash
@@ -53,7 +59,7 @@ cd ~/APSS
 pip install -e .
 ```
 
-### Method 2: With Our Docker Image
+### Method 2: 使用我们已经构建好的镜像
 [可选1]拉取镜像
 ```bash
 docker push cheny1m/apss-mindspore-gpu-cuda11.1:1.0
@@ -62,7 +68,7 @@ docker push cheny1m/apss-mindspore-gpu-cuda11.1:1.0
 ```bash
 docker build -t apss-mindspore-gpu-cuda11.1:1.0 .
 ```
-获得镜像后启动容器：
+获得镜像后,启动容器（代码映射解释见[方法1 启动容器](#method-1-使用mindspore官方镜像并从源码构建))：
 ```bash
 docker run -itd -v /dev/shm:/dev/shm -v /home/upa1/cym/MindSpore/APSS:/root/APSS -v /home/upa1/cym/MindSpore/data:/root/APSS/resource --name apss --runtime=nvidia cheny1m/apss-mindspore-gpu-cuda11.1:1.0 /bin/bash
 
@@ -70,23 +76,26 @@ docker exec -it apss /bin/bash
 cd ~/APSS
 ```
 
-## 环境构建(Ascend)
-Requirements:  
- - Python >= 3.7
- - Mindspore >= 2.2.0 [(Help)](https://www.mindspore.cn/install)
+## 2.2 Ascend 
+进入已有的Mindspore环境后从源码构建即可：
+```bash
+# from 90.90.93.240
+cd /home/xby
+source xby_env.sh r2_3
 
-164:source /home/kkr/env.sh
-# 
+cd ~/APSS
+pip install -e .
+```
 
-## 程序运行
-### 设置运行环境的context
-本步骤主要设置运行时的目标设备和模式，默认目标设备为`GPU`，默认运行模式为`PYNATIVE_MODE`。如需查看详情和修改目标设备及运行模式，请在[config.json](/config.json)中修改。
+## 3. 程序运行
+### 3.1 设置运行环境的context
+本步骤主要设置运行时的目标设备和模式，默认目标设备为`Ascend`，默认运行模式为`PYNATIVE_MODE`。如需查看详情和修改目标设备及运行模式，请在[config.json](/config.json)中修改。
 * "DEVICE_TARGET": 设置运行设备。支持[Ascend],[GPU],[CPU].
 
 * "CONTEXT_MODE": 设置运行环境context的mode,在[0]：(GRAPH_MODE)和[1]：(PYNATIVE_MODE)中选择。
 
 
-### 一步执行训练
+### 3.2 一步执行训练
 
 ```
 python -m apss.training.apss_run --graph_size 8 --num_split 3 --rebuild_data
@@ -97,5 +106,8 @@ python -m apss.training.apss_run --graph_size 8 --num_split 3 --rebuild_data
 
 执行上述代码会执行apss的训练，所有在num_split取值范围中且小于设定的num_split的模型都将被训练。每个模型训练默认训练100个epoch，每个epoch训练1,280,000条数据，batch_size为512。
 
+### 3.3 模型参数保存
+最后模型参数将会保存在/resource/outputs当中.
+
 ## 训练原理
-![The pipeline of APSS.](../docs/apss_pipeline.png)
+![The pipeline of APSS.](../docs/apss_pipeline.png) 
