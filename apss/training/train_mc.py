@@ -26,8 +26,6 @@ from .test import get_partiton_cost_sequence
 
 from apss.utils.reinforce_loss import CustomReinforceLoss
 
-from memory_profiler import profile
-
 with open('config.json', 'r') as f:
     config = json.load(f)
 RESOURCE_DIR = config["RESOURCE_DIR"]
@@ -312,7 +310,7 @@ def train_all(model, optimizer, baseline, loss_fn,lr_scheduler, val_dataset, pro
                 opts
             )
             step += 1
-            print("epoch:" + str(epoch) + "batch:" + str(batch_id), psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024)
+            # print("epoch:" + str(epoch) + "batch:" + str(batch_id), psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024)
 
         
         epoch_duration = time.time() - start_time

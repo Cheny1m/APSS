@@ -1,5 +1,5 @@
 # APSS Training Guide  【APSS训练指南】
-### [2024.03.19] 
+### [2024.03.20] 
 本指南指导用户如何构建APSS并行搜索策略项目的训练过程。
 
 本项目训练过程支持的后端设备为：
@@ -12,15 +12,15 @@
 ## 目录
 - [1. 项目清单](#1-项目清单)
 - [2. 环境构建](#环境构建)
-  - [GPU](#1-gpu)
+  - [GPU](#21-gpu)
     - [Method 1: 使用Mindspore官方镜像并从源码构建](#method-1-使用mindspore官方镜像并从源码构建)
     - [Method 2: 用我们已经构建好的镜像](#method-2-使用我们已经构建好的镜像)
-  - Ascend
+  - [Ascend](#22-ascend)
 - [程序运行](#程序运行)
 - [训练原理](#训练原理)
 
 ## 1. 项目清单
-  * 代码包APSS (APSS-graphmode.zip)
+  * 代码包APSS (APSS.zip)
     - apss为项目源代码部分，inference表示推理部分代码，nets表示模型，problems表示我们抽象出来的拟训练问题，training表示训练部分代码，utils是一些工具类。
     - apss.egg-info为打包后测试使用pip安装apss包后的元数据信息，用户无需关心。
     - docs是一些说明文档，包括项目训练说明以及一些常见的问题。
@@ -30,7 +30,12 @@
     - dockerfile为`GPU`训练环境镜像构建文件。
     -	pyproject.toml为配置依赖启动文件。
 
+    ![APSS 代码结构](images/APSS_code.png)
+
   * 数据包data(APSS-graphmode.zip中与APSS同级)
+
+    ![数据包 data结构](images/data_code.png)
+
     - 单独开辟了占用空间较大的数据存储，并在构建程序运行环境时，分别将源代码文件和数据包内容同时映射或放入运行环境中，数据包由代码文件APSS中的/resource目录进行映射。即APSS/resource -->data，无需用户感知。
 
   * GPU环境的Docker镜像 (https://hub.docker.com/repository/docker/cheny1m/apss-mindspore-gpu-cuda11.1/general)
@@ -46,10 +51,10 @@ Requirements:
 
 ## 2.1. GPU
 ### Method 1: 使用Mindspore官方镜像并从源码构建
-启动容器：将`源代码目录APSS`（本例中为/home/upa1/cym/MindSpore/APSS）和`数据包目录data`（本例中为/home/upa1/cym/MindSpore/data）分别映射到容器内部的`APSS`目录（本例中为/root/APSS）和`APSS/resource`目录（本例中为/root/APSS/resource）
+启动容器：将`源代码目录APSS`（本例中为/data01/cym/MindSpore/APSS）和`数据包目录data`（本例中为/data01/cym/MindSpore/data）分别映射到容器内部的`APSS`目录（本例中为/root/APSS）和`APSS/resource`目录（本例中为/root/APSS/resource）
 ***注意：如果数据包的容器映射目录不为默认的`resource`，请在[config.json](/config.json)中修改`RESOURCE_DIR`的value为您定义的目录。***
 ```bash
-docker run -itd -v /dec/shm:/dev/shm -v /home/upa1/cym/MindSpore/APSS:/root/APSS -v /home/upa1/cym/MindSpore/data:/root/APSS/resource --name apss --runtime=nvidia swr.cn-south-1.myhuaweicloud.com/mindspore/mindspore-gpu-cuda11.1:2.2.0 /bin/bash
+docker run -itd -v /dec/shm:/dev/shm -v /data01/cym/MindSpore/APSS:/root/APSS -v /data01/cym/MindSpore/data:/root/APSS/resource --name apss --runtime=nvidia swr.cn-south-1.myhuaweicloud.com/mindspore/mindspore-gpu-cuda11.1:2.2.0 /bin/bash
 
 docker exec -it apss /bin/bash
 ```
@@ -59,6 +64,8 @@ cd ~/APSS
 pip install -e .
 ```
 
+![GPU_Method1](images/GPU_Method1.png)
+
 ### Method 2: 使用我们已经构建好的镜像
 [可选1]拉取镜像
 ```bash
@@ -66,9 +73,13 @@ docker push cheny1m/apss-mindspore-gpu-cuda11.1:1.0
 ```
 [可选2]或者通过dockerfile构建镜像
 ```bash
+cd APSS
 docker build -t apss-mindspore-gpu-cuda11.1:1.0 .
 ```
-获得镜像后,启动容器（代码映射解释见[方法1 启动容器](#method-1-使用mindspore官方镜像并从源码构建))：
+
+  ![Alt text](images/builddocker.png)
+
+获得镜像后,启动容器（代码映射解释见[方法1 启动容器](#method-1-使用mindspore官方镜像并从源码构建))：如采用通过dockerfile构建镜像，请将下述命令中的`cheny1m/apss-mindspore-gpu-cuda11.1:1.0`替换为`apss-mindspore-gpu-cuda11.1:1.0`
 ```bash
 docker run -itd -v /dev/shm:/dev/shm -v /home/upa1/cym/MindSpore/APSS:/root/APSS -v /home/upa1/cym/MindSpore/data:/root/APSS/resource --name apss --runtime=nvidia cheny1m/apss-mindspore-gpu-cuda11.1:1.0 /bin/bash
 
@@ -94,20 +105,26 @@ pip install -e .
 
 * "CONTEXT_MODE": 设置运行环境context的mode,在[0]：(GRAPH_MODE)和[1]：(PYNATIVE_MODE)中选择。
 
+  ![set context](images/context.png)
+
 
 ### 3.2 一步执行训练
 
 ```
-python -m apss.training.apss_run --graph_size 8 --num_split 3 --rebuild_data
+python -m apss.training.apss_run --graph_size 30 --num_split 15 --rebuild_data
 ```
 * `graph_size` , `num_split` 分别代表了问题的层数大小和需要执行pipeline划分的数量，两个命令行参数共同描述了所训练问题的大小，可根据需求动态调整。目前graph_size取值范围为`[8,18,25,30,42,54,102]`, num_split取值范围为`[1,3,7,15,31,63]`。
-* `rebuild_data` 表示是否在执行训练前，从Data Synthesizer中生成训练数据，默认建议开启。如果需要从`.ckpt`中接续训练或无需改变之前生成的训练数据直接禁用`--rebuild_data`参数即可。生成的训练数据可在数据包的/data目录下找到。
-* 已经完成过执行训练后，本次运行的参数文件及`.ckpt`文件将保存在数据包的/output文件夹下，日志保存在数据包的/log文件夹下，可以通过tensorboard_logger在浏览器中实时查看训练过程及其数据。
+* `rebuild_data` 表示是否在执行训练前，从Data Synthesizer中生成训练数据，默认建议开启。如果需要从`.ckpt`中接续训练或无需改变之前生成的训练数据直接禁用`--rebuild_data`参数即可。生成的训练数据可在数据包data即`/resource`映射目录下找到。
 
-执行上述代码会执行apss的训练，所有在num_split取值范围中且小于设定的num_split的模型都将被训练。每个模型训练默认训练100个epoch，每个epoch训练1,280,000条数据，batch_size为512。
+  ![training](images/training.png)
+
+执行上述代码会执行apss的训练。每个模型训练默认训练100个epoch，每个epoch训练1,280,000条数据，batch_size为512。如需微调这些超参，请在[options.py](../apss/training/options.py)中调整。
 
 ### 3.3 模型参数保存
-最后模型参数将会保存在/resource/outputs当中.
+* 执行训练后，本次运行的参数文件及`.ckpt`文件将保存在数据包的/output文件夹下，日志保存在数据包的/log文件夹下，可以通过tensorboard_logger在浏览器中实时查看训练过程及其数据。
+* 当前已经训练好的可用于推理的权重保存在`resource/outputs/pp_30`下不带时间戳的文件夹中。
+
+  ![Alt text](images/ckpt.png)
 
 ## 训练原理
-![The pipeline of APSS.](../docs/apss_pipeline.png) 
+![The pipeline of APSS.](images/apss_pipeline.png) 

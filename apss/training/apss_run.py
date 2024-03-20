@@ -3,7 +3,6 @@ import argparse
 import sys
 import time
 import json
-from memory_profiler import profile
 
 import mindspore as ms
 
@@ -39,6 +38,7 @@ def main():
     # 设置训练环境，执行训练
     ms.set_context(device_target=DEVICE_TARGET, device_id = DEVICE_ID, mode=CONTEXT_MODE)
 
+    # 批量求解
     # for num_split in [1,3,7,15,31,63]:
     #     if num_split > max_num_split:
     #         continue
@@ -53,6 +53,7 @@ def main():
     #     run(opts)
     #     print("The training of graphsize:{},num_split:{} is finish!".format(opts.graph_size , num_split))
 
+    # 执行某个特殊的求解
     opts = get_options()
     opts.num_split = max_num_split
     opts.run_name = "{}_{}_{}_{}".format(opts.problem, opts.graph_size,opts.num_split + 1,time.strftime("%Y%m%dT%H%M%S")) 

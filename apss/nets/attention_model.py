@@ -20,7 +20,6 @@ from apss.problems.pp.state_pp import StatePP
 
 from .graph_encoder import GraphAttentionEncoder
 
-from memory_profiler import profile
 
 def _calc_log_likelihood(_log_p, a, mask):
     # log_p = ops.gather(_log_p, 2, a.unsqueeze(-1)).squeeze(-1)
@@ -317,9 +316,9 @@ class AttentionModel(nn.Cell):
             assert not ops.gather_elements(mask,1, ops.expand_dims(selected,-1)).any(), "Decode greedy: infeasible action has maximum probability"
         
         elif self.decode_type == "sampling":
-            # selected = ops.multinomial(probs, 1,replacement = False).squeeze(1)
+            selected = ops.multinomial(probs, 1,replacement = False).squeeze(1)
             #  for https://gitee.com/mindspore/mindspore/issues/I5NEFI?from=project-issue,but got RuntimeError: Illegal primitive Multinomial's bprop not defined
-            selected = self._multinomial(probs, 1).squeeze(1)
+            # selected = self._multinomial(probs, 1).squeeze(1)
             # while ops.gather_elements(mask,1,selected.unsqueeze(-1)).any():
             while ops.ReduceAny()(ops.gather_elements(mask,1,selected.unsqueeze(-1))):
                 print('Sampled bad values, resampling!')

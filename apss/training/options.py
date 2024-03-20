@@ -13,7 +13,7 @@ def get_options(args=[]):
     parser.add_argument('--num_split', type=int, default=15, help="The size of the problem graph")
     parser.add_argument('--node_size', type=int, default=30, help="The size of the problem graph")
     parser.add_argument('--batch_size', type=int, default=512, help='512Number of instances per batch during training')
-    parser.add_argument('--epoch_size', type=int, default=12800, help='1280000Number of instances per epoch during training')
+    parser.add_argument('--epoch_size', type=int, default=1280000, help='1280000Number of instances per epoch during training')
     parser.add_argument('--val_size', type=int, default=10000,
                         help='10000Number of instances used for reporting validation performance')
     parser.add_argument('--val_dataset', type=str, default=None, help='Dataset file to use for validation')
