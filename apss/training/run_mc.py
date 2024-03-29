@@ -10,6 +10,7 @@ from mindspore.communication import init,get_rank,get_group_size
 from mindspore.amp import auto_mixed_precision
 
 from apss.nets.attention_model import AttentionModel
+from apss.nets.attention_model_v2 import AttentionStepModel
 from apss.utils import load_problem
 from apss.utils.reinforce_loss import CustomReinforceLoss
 
@@ -176,7 +177,8 @@ def run(opts):
 
     # Initialize model
     model_class = {
-        'attention': AttentionModel
+        'attention': AttentionModel,
+        'attention_v2': AttentionStepModel,
     }.get(opts.model, None)
     assert model_class is not None, "Unknown model: {}".format(model_class)
     model = model_class(

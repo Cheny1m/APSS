@@ -21,3 +21,9 @@ rank_0/
 *dat
 profiler*
 output*.png
+
+# torch
+nets/
+problems/
+torchoutputs/
+utils/

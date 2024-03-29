@@ -9,6 +9,8 @@ import mindspore.ops.operations as ops
 
 def pipe_ast(L, cost_e, cost_c, k, B):
     time_dp_s = time.time()
+    for i in range(len(cost_e)):
+        cost_e[i] = float(cost_e[i].item())
     possible = [0]
     # 用双层循环，生成所有可能的stage组合
     for i in range(1, L+1):

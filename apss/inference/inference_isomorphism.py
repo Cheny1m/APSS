@@ -141,12 +141,13 @@ def inference(
     # save this name to env
     os.environ["apss_log_path"] = record_file
     # model_tmp_path = os.path.join(RESOURCE_DIR,"epoch-14.ckpt")
+    checkpoint_path = "/root/APSS/checkpoint"
     def load_all_model():
         models={}
-        models[2], _ = load_model("/root/APSS/resource/outputs/pp_30/pp_30_2/pp_30_2_final.ckpt")
-        models[4],_ =  load_model("/root/APSS/resource/outputs/pp_30/pp_30_4/pp_30_4_final.ckpt")
-        models[8],_ = load_model("/root/APSS/resource/outputs/pp_30/pp_30_8/pp_30_8_final.ckpt")
-        models[16],_=  load_model("/root/APSS/resource/outputs/pp_30/pp_30_16/pp_30_16_final.ckpt")
+        models[2], _ = load_model(os.path.join(checkpoint_path,"pp_30_2/pp_30_2_final.ckpt"))
+        models[4],_ =  load_model(os.path.join(checkpoint_path,"pp_30_4/pp_30_4_final.ckpt"))
+        models[8],_ =  load_model(os.path.join(checkpoint_path,"pp_30_8/pp_30_8_final.ckpt"))
+        models[16],_=  load_model(os.path.join(checkpoint_path,"pp_30_16/pp_30_16_final.ckpt"))
         # models[2] = models[2].eval()
         # models[2] = models[2].cuda()
         # models[4] = models[4].eval()
@@ -282,19 +283,24 @@ def inference(
                 
                 # known_record = f"/home/oj/distributed_floder/research/AMP/src/known_cost/{self.model_type}_P3_{mp_size}"
                 # known_record = f"/root/cym/AMP/src/known_cost/{self.model_type}_P3_{mp_size}"
-                known_record = f"/root/APSS/resource/known_cost/{self.model_type}_P3_{mp_size}"
+                # known_record = f"/root/APSS/resource/known_cost/{self.model_type}_P3_{mp_size}"
+                known_record = f"/root/APSS/resource/known_cost/{self.model_type}_{num_layers}_{mp_size}"
+
                 
                 cur_profile_cost1 = 3 * np.load(f"{known_record}.npy")
                 
                 # known_record = f"/home/oj/distributed_floder/research/AMP/src/known_cost/{self.model_type}_G4_{mp_size}"
                 # known_record = f"/root/cym/AMP/src/known_cost/{self.model_type}_P3_{mp_size}"
-                known_record = f"/root/APSS/resource/known_cost/{self.model_type}_P3_{mp_size}"
+                # known_record = f"/root/APSS/resource/known_cost/{self.model_type}_P3_{mp_size}"
+                known_record = f"/root/APSS/resource/known_cost/{self.model_type}_{num_layers}_{mp_size}"
 
                 cur_profile_cost2 = 3 * np.load(f"{known_record}.npy")
 
+                print("cur_profile_cost1:",cur_profile_cost1)
                 # average between different speed of GPUs
                 cur_profile_cost = cur_profile_cost1 * 0.75 + cur_profile_cost2 * 0.25
-                cur_profile_cost = cur_profile_cost[2:26]
+                
+                # cur_profile_cost = cur_profile_cost[2:26]
                 print("cur_profile_cost:",cur_profile_cost)
 
                 self.profile_cost[str(mp_size)] = cur_profile_cost
@@ -372,9 +378,9 @@ def inference(
                 # partition[0] += 2
                 # partition[-1] += 4
             else:
-                # partition, _ = pipe_ast(len(cost_e), np.asarray(cost_e), np.asarray(cost_c), int(pp.item()), int(B.item()))
+                partition, _ = pipe_ast(len(cost_e), np.asarray(cost_e), np.asarray(cost_c), int(pp.item()), int(B.item()))
                 # partition, _ = pipe_rl_sample(self.models, len(cost_e), cost_e, cost_c, int(pp.item()), int(B.item()))
-                partition, _ = pipe_rl(self.models, len(cost_e), cost_e, cost_c, int(pp.item()), int(B.item()))
+                # partition, _ = pipe_rl(self.models, len(cost_e), cost_e, cost_c, int(pp.item()), int(B.item()))
                 
             print(f"apss gives partition: {partition}")
             cost = pipe_cost(L, cost_e, cost_c, pp, B, partition)

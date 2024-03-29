@@ -20,6 +20,7 @@ def main():
     parser = argparse.ArgumentParser(description="Run training with specified graph size and number of splits.")
     parser.add_argument('--graph_size', type=int, required=True, choices = [8,18,25,30,42,54,102],help='Size of the graph.')
     parser.add_argument('--num_split', type=int, required=True,choices=[1,3,7,15,31,63], help='Number of splits.')
+    parser.add_argument('--model',required=True, default='attention', help="Model, 'attention' or 'attention_v2'")
     parser.add_argument("--rebuild_data",action="store_true",help="If set, program will rebuild training data.")
 
     args = parser.parse_args()
