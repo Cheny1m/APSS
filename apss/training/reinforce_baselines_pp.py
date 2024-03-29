@@ -179,11 +179,6 @@ class RolloutBaselinePP(Baseline):
             self.dataset = self.problem.make_dataset(size=self.opts.graph_size, num_samples=self.opts.val_size, distribution=self.opts.data_distribution, num_split=self.opts.num_split)
         else:
             self.dataset = dataset
-        # Type: list
-        # number = val_size,
-        # Each sample has shape [size-1, 2 + num_split]
-        # print("len(dataset)",len(self.dataset))
-        # print(self.dataset)
         print("Evaluating baseline model on evaluation dataset")
         self.bl_vals, _ = rollout(self.model, self.dataset, self.opts)
         self.bl_vals = self.bl_vals.asnumpy()

@@ -156,6 +156,7 @@ def train_all(model, optimizer, baseline, loss_fn,lr_scheduler, val_dataset, pro
                 model.set_train(mode=True)  
         return loss
 
+    # 原始训练写法：
     # def train_epoch(model, optimizer, baseline, loss_fn,lr_scheduler,epoch, val_dataset, problem, tb_logger, opts):
         # print("Start train epoch {}, lr={} for run {}".format(epoch, lr_scheduler(epoch), opts.run_name))
         # step = epoch * (opts.epoch_size // opts.batch_size)
@@ -270,7 +271,7 @@ def train_all(model, optimizer, baseline, loss_fn,lr_scheduler, val_dataset, pro
 
         # baseline.epoch_callback(model, epoch)
 
-
+    # 新训练写法
     for epoch in range(opts.epoch_start, opts.epoch_start + opts.n_epochs):
         print("Start train epoch {}, lr={} for run {}".format(epoch, lr_scheduler(epoch), opts.run_name))
         step = epoch * (opts.epoch_size // opts.batch_size)

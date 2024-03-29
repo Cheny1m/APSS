@@ -1,4 +1,5 @@
 #!/bin/bash
+# 权重转换脚本，torch 2 mindspore
 # 启动命令
 # bash start_conversion.sh
 

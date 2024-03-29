@@ -4,8 +4,6 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_dir = os.path.dirname(current_dir)
 sys.path.append(project_dir)
-# pip install tqdm
-# from test import get_partiton_cost_sequence, pipe_ast,pi2partition
 import numpy as np
 from apss.nets.attention_model import set_decode_type
 import time
@@ -20,22 +18,15 @@ from mindspore import Tensor
 # pip install tensorboard_logger
 
 from apss.nets.attention_model import AttentionModel
-from utils import load_problem, load_model, load_model_temp#,torch_load_cpu
-import math
+from apss.utils import load_model#,torch_load_cpu
 import time
 from collections import defaultdict
-import operator
-import shutil
-import random
-import copy
 
 from tqdm import tqdm
 
 import numpy as np
 
 import mindspore.nn as nn
-# sys.path.append("/home/oj/distributed_floder/research/AMP/src/")
-# sys.path.append("/root/cym/AMP/src/")
 
 # pip install numpy
 from .sa import amp_no_placement_strategy
@@ -44,9 +35,6 @@ from .cost_het_cluster import  get_cost_e,dp_cost,get_cost_c
 from collections import defaultdict
 import time
 import json
-import copy
-
-import subprocess
 import sys
 import os
 
@@ -60,14 +48,6 @@ import mindspore.ops as ops
 import mindspore.context as context
 import numpy as np
 
-
-
-# home_path = "/home/oj/distributed_floder/research/AMP" #os.environ['HOME']
-# home_path = "/root/cym/AMP"
-# home_path = '../../../data'
-# dir_path = os.path.join(home_path, 'apss_main_logs')
-# if not os.path.exists(dir_path):
-#     os.mkdir(dir_path)
 def inference(
     M=2,
     N=2,
@@ -89,29 +69,11 @@ def inference(
     # N = 2
     # print(M)
     # # inter-node bandwidth, intra-node bandwidth
-    # for i in range(N-1):
-    #         cluster_info[i] = [mindspore.nmp([10 * 1e9 / 32]).float(), torch.tensor([170 * 1e9 / 32]).float()]
-    # cluster_info[N-1] = [torch.tensor([50 * 1e9 / 32]).float(), torch.tensor([50 * 1e9 / 32]).float()]
-
-    # model_config = {"hidden_size": torch.tensor([1024]).float(), 
-    #                 "sequence_length": torch.tensor([1024]).float(), 
-    #                 "num_layers": torch.tensor([24]).float(), 
-    #                 "vocab_size":torch.tensor([52256]).float(),
-    #                 "type":"gpt2"}
-
     cluster_info = {}
     for i in range(N - 1):
         cluster_info[i] = [mnp.array([10 * 1e9 / 32]).astype(mnp.float32), mnp.array([170 * 1e9 / 32]).astype(mnp.float32)]
     cluster_info[N - 1] = [mnp.array([50 * 1e9 / 32]).astype(mnp.float32), mnp.array([50 * 1e9 / 32]).astype(mnp.float32)]
 
-# parameter
-    # model_config = {
-    #     "hidden_size": mnp.array([1024]).astype(mnp.float32),
-    #     "sequence_length": mnp.array([1024]).astype(mnp.float32),
-    #     "num_layers": mnp.array([24]).astype(mnp.float32),
-    #     "vocab_size": mnp.array([52256]).astype(mnp.float32),
-    #     "type": "gpt2"
-    # }
 
     model_config = {
         "hidden_size": mnp.array([hidden_size]).astype(mnp.float32),
@@ -148,18 +110,6 @@ def inference(
         models[4],_ =  load_model(os.path.join(checkpoint_path,"pp_30_4/pp_30_4_final.ckpt"))
         models[8],_ =  load_model(os.path.join(checkpoint_path,"pp_30_8/pp_30_8_final.ckpt"))
         models[16],_=  load_model(os.path.join(checkpoint_path,"pp_30_16/pp_30_16_final.ckpt"))
-        # models[2] = models[2].eval()
-        # models[2] = models[2].cuda()
-        # models[4] = models[4].eval()
-        # models[4] = models[4].cuda()
-        # models[8] = models[8].eval()
-        # models[8] = models[8].cuda()
-        # models[16] = models[16].eval()
-        # models[16] = models[16].cuda()
-        # models[2], _ = load_model_temp(model_tmp_path,1)
-        # models[4],_ =  load_model_temp(model_tmp_path,3)
-        # models[8],_ = load_model_temp(model_tmp_path,7)
-        # models[16],_=  load_model_temp(model_tmp_path,15)
         models[2] = models[2].set_train(False)
         models[4] = models[4].set_train(False)
         models[8] = models[8].set_train(False)
@@ -201,9 +151,6 @@ def inference(
         if k==1:
             # return [cost_e.size(0)], None
             return [cost_e.shape[0]], None
-        # print(cost_e.size(),cost_e)
-        # print(cost_c.size(),cost_c)
-        # ori_data = cost_e.view(1,-1,1).cuda()
         ori_data = cost_e.view(1,-1,1)
         # cost_c_data = cost_c[None,...].cuda()
         cost_c_data = cost_c[None,...]
@@ -223,13 +170,8 @@ def inference(
         time1=time.time()
         new_data = []
         new_sample = []
-        # n_cost_e = pow(10,count_e-1) * cost_e
-        # n_cost_c = pow(10,count_c-1) * cost_c
         n_cost_e = cost_e/cost_e.max()#pow(10,count_e-1) * cost_e
         n_cost_c = cost_c/cost_c.max()#pow(10,count_c-1) * cost_c
-        # print(n_cost_e)
-        # print(n_cost_c)
-        # for j in range(cost_e.size(0)-1):
         for j in range(cost_e.shape[0]-1):
             new_sample.append([sum(n_cost_e[:j+1]),sum(n_cost_e[j+1:])]+n_cost_c[j,:].tolist())
         new_data.append(new_sample)
@@ -247,8 +189,6 @@ def inference(
         time2= time.time()
         print("GNN cost: ", time2-time1, "cost: ", cost)
         return part, None
-        # gnn_cots = get_partiton_cost_sequence(ori_data.view(-1),cost_c_data[0,...],part)
-    # home_dir = "/home/oj/distributed_floder/research/AMP" #os.environ['HOME']
     home_dir = "/root/cym/AMP" #os.environ['HOME']
 
     workdir_path = os.path.join(home_dir, "AMP/DeepSpeed/DeepSpeedExamples/Megatron-LM-v1.1.5-3D_parallelism")
@@ -279,19 +219,11 @@ def inference(
             self.profile_cost = {}
             #if self.estimate:
             for mp_size in [1,2,4]:
-                # known_cost directory stores the real forward time with correponding model parallel degree.
-                
-                # known_record = f"/home/oj/distributed_floder/research/AMP/src/known_cost/{self.model_type}_P3_{mp_size}"
-                # known_record = f"/root/cym/AMP/src/known_cost/{self.model_type}_P3_{mp_size}"
-                # known_record = f"/root/APSS/resource/known_cost/{self.model_type}_P3_{mp_size}"
                 known_record = f"/root/APSS/resource/known_cost/{self.model_type}_{num_layers}_{mp_size}"
 
                 
                 cur_profile_cost1 = 3 * np.load(f"{known_record}.npy")
                 
-                # known_record = f"/home/oj/distributed_floder/research/AMP/src/known_cost/{self.model_type}_G4_{mp_size}"
-                # known_record = f"/root/cym/AMP/src/known_cost/{self.model_type}_P3_{mp_size}"
-                # known_record = f"/root/APSS/resource/known_cost/{self.model_type}_P3_{mp_size}"
                 known_record = f"/root/APSS/resource/known_cost/{self.model_type}_{num_layers}_{mp_size}"
 
                 cur_profile_cost2 = 3 * np.load(f"{known_record}.npy")
@@ -375,12 +307,8 @@ def inference(
 
             if int(B.item()) == 1:
                 partition, _ = pipe_uniform(int(L.item()), int(pp.item()))
-                # partition[0] += 2
-                # partition[-1] += 4
             else:
                 partition, _ = pipe_ast(len(cost_e), np.asarray(cost_e), np.asarray(cost_c), int(pp.item()), int(B.item()))
-                # partition, _ = pipe_rl_sample(self.models, len(cost_e), cost_e, cost_c, int(pp.item()), int(B.item()))
-                # partition, _ = pipe_rl(self.models, len(cost_e), cost_e, cost_c, int(pp.item()), int(B.item()))
                 
             print(f"apss gives partition: {partition}")
             cost = pipe_cost(L, cost_e, cost_c, pp, B, partition)

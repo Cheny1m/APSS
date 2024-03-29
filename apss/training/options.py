@@ -19,7 +19,7 @@ def get_options(args=[]):
     parser.add_argument('--val_dataset', type=str, default=None, help='Dataset file to use for validation')
 
     # Model
-    parser.add_argument('--model', default='attention', help="Model, 'attention' (default) or 'pointer'")
+    parser.add_argument('--model', default='attention', help="Model, 'attention' (default) or 'attention'")
     parser.add_argument('--embedding_dim', type=int, default=128, help='Dimension of input embedding')
     parser.add_argument('--hidden_dim', type=int, default=128, help='Dimension of hidden layers in Enc/Dec')
     parser.add_argument('--n_encode_layers', type=int, default=3,

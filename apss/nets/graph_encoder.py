@@ -47,8 +47,6 @@ class MultiHeadAttention(nn.Cell):
         assert q.shape[2] == input_dim
         assert input_dim == self.input_dim, "Wrong embedding dimension of input"
 
-        # hflat = h.contiguous().view(-1, input_dim)
-        # qflat = q.contiguous().view(-1, input_dim)
         hflat = h.reshape(-1, input_dim)
         qflat = q.reshape(-1, input_dim)
 

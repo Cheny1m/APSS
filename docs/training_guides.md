@@ -22,6 +22,7 @@
 ## 1. 项目清单
   * 代码包APSS (APSS.zip)
     - apss为项目源代码部分，inference表示推理部分代码，nets表示模型，problems表示我们抽象出来的拟训练问题，training表示训练部分代码，utils是一些工具类。
+    - checkpoint是我们预训练好的一些Mindspore权重。
     - apss.egg-info为打包后测试使用pip安装apss包后的元数据信息，用户无需关心。
     - docs是一些说明文档，包括项目训练说明以及一些常见的问题。
     - resource是外部数据包`/..data`默认链接目录，主要包括日志、输出文件以及训练产生的ckpt，可由用户在`config.json`中配置。
@@ -111,9 +112,10 @@ pip install -e .
 ### 3.2 一步执行训练
 
 ```
-python -m apss.training.apss_run --graph_size 30 --num_split 15 --rebuild_data
+python -m apss.training.apss_run --graph_size 30 --num_split 15 --model attention_v2 --rebuild_data
 ```
 * `graph_size` , `num_split` 分别代表了问题的层数大小和需要执行pipeline划分的数量，两个命令行参数共同描述了所训练问题的大小，可根据需求动态调整。目前graph_size取值范围为`[8,18,25,30,42,54,102]`, num_split取值范围为`[1,3,7,15,31,63]`。
+* `model`参数表示模型选择器，默认为`attention`,还有`attention_v2`（可选）
 * `rebuild_data` 表示是否在执行训练前，从Data Synthesizer中生成训练数据，默认建议开启。如果需要从`.ckpt`中接续训练或无需改变之前生成的训练数据直接禁用`--rebuild_data`参数即可。生成的训练数据可在数据包data即`/resource`映射目录下找到。
 
   ![training](images/training.png)

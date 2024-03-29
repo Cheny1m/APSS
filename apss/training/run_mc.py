@@ -81,29 +81,14 @@ def rollout(model, dataset, opts):
     model.set_train(False)
 
     def eval_model_bat(bat, ori_bat, cost_c_bat):
-        # cost, _, pi = model(Tensor(bat, ms.float32),
-        #                     Tensor(ori_bat, ms.float32),
-        #                     Tensor(cost_c_bat, ms.float32),
-        #                     return_pi = True)
-        # return cost,pi
         cost, _, pi = model(bat,ori_bat,cost_c_bat,return_pi = True) # 内存增加
         return cost,pi
-
-        # # _log_p,pi = model(Tensor(bat, ms.float32), Tensor(ori_bat, ms.float32), Tensor(cost_c_bat, ms.float32),return_pi = True)
-        # _log_p,pi = model(bat,ori_bat,cost_c_bat,return_pi = True)
-        # cost,mask = get_pp_costs(ori_bat,cost_c_bat,bat,pi)
-        # # ll = _calc_log_likelihood(_log_p,pi,mask)
-        # return cost,pi
 
     bats = []
     pis = []
 
     ms_dataset = ds.GeneratorDataset(source=dataset,column_names=["data", "ori_data", "cost_c_data"],num_parallel_workers=1)
     ms_dataset = ms_dataset.batch(batch_size=opts.eval_batch_size) 
-    # for data in tqdm(ms_dataset.create_dict_iterator(),total = math.ceil(len(dataset) / opts.eval_batch_size)):
-    #     cost,pi = eval_model_bat(data["data"],data["ori_data"],data["cost_c_data"])
-    #     bats.append(cost)
-    #     pis.append(pi)
 
     for bat, ori_bat,cost_c_bat in tqdm(ms_dataset.create_tuple_iterator(),total = math.ceil(len(dataset) / opts.eval_batch_size)):# # 内存增长
         cost, pi = eval_model_bat(bat,ori_bat,cost_c_bat)
@@ -139,12 +124,6 @@ def run(opts):
     # Set the random seed
     ms.set_seed(opts.seed)
 
-    # Set the device，PYNATIVE_MODE
-
-    # device_target = "GPU" if opts.use_cuda else "CPU"
-    # ms.set_context(device_target=device_target, device_id = 1, mode=ms.PYNATIVE_MODE)
-
-    # ms.set_context(device_target=DEVICE_TARGET, device_id = 0, mode=CONTEXT_MODE)
     print("device:",ms.get_context("device_target"),"\nmode:",ms.get_context("mode"))
 
     # Optionally configure tensorboard/ install tensorflow and tensorboard_logger. mindinsight can be uesed for this.
@@ -221,32 +200,8 @@ def run(opts):
     if opts.bl_warmup_epochs > 0:
         print(opts.bl_warmup_epochs)
         baseline = WarmupBaseline(baseline, opts.bl_warmup_epochs, warmup_exp_beta=opts.exp_beta)
-
-    # Load baseline from data, make sure script is called with same type of baseline
-    # if 'baseline' in load_data:
-    #     print('baseline' in load_data)
-    #     baseline.load_state_dict(load_data['baseline'])
-
-
-    # Initialize learning rate scheduler, decay by lr_decay once per epoch!
-
-    # # lr_scheduler = lr_scheduler.LambdaLR(optimizer, lambda epoch: opts.lr_decay ** epoch)
-
-    # def learning_rate_function(lr_decay,epoch):
-    #     return lr_decay ** epoch
-    # lr_scheduler = LearningRateScheduler(learning_rate_function(opts.lr_decay,epoch))
-    
     # 在训练过程中，优化器以当前step(epoch)为输入调用该实例，得到当前的学习率(使用decay_steps=1，达到原式子效果)
     lr_scheduler = nn.ExponentialDecayLR(learning_rate=opts.lr_model, decay_rate=opts.lr_decay,decay_steps=1,is_stair=True)
-    # lr_scheduler = lr_scheduler(epoch)
-    # optimizer.group_lr = lr_scheduler
-    # print("optimizer:",optimizer.group_lr.learning_rate)
-
-    # Initialize optimizer
-    # params = [{'params': model.trainable_params(), 'lr': opts.lr_model}]
-    # if len(baseline.get_learnable_parameters()) > 0:
-    #     params += [{'params': baseline.get_learnable_parameters(), 'lr': opts.lr_critic}]
-    # optimizer = optim.Adam(params=params)
 
     group_params = [{'params': model.trainable_params(), 'lr': lr_scheduler}]
     if len(baseline.get_learnable_parameters()) > 0:
@@ -257,15 +212,6 @@ def run(opts):
         ms.load_param_into_net(optimizer,load_data)
         print("Optimizer parameters are loaded!")
 
-    # Load optimizer state
-    # if 'optimizer' in load_data:
-    #     param_dict = load_checkpoint(load_path)
-    #     optimizer.load_state_dict(param_dict['optimizer'])
-    #     for state in optimizer.get_states():
-    #         for k, v in state.items():
-    #             if isinstance(v, ms.Tensor):
-    #                 state[k] = v
-
     # Start the actual training loop
     val_dataset = problem.make_dataset(
         filename=os.path.join(RESOURCE_DIR,opts.val_dataset),size=opts.graph_size, num_samples=opts.val_size, distribution=opts.data_distribution,num_split=opts.num_split)
@@ -274,13 +220,6 @@ def run(opts):
         if "rng_state" in load_data:
             ms.set_seed(load_data["rng_state"])
         epoch_resume = int(os.path.splitext(os.path.split(opts.resume)[-1])[0].split("-")[1])
-        # set_seed(load_data['rng_state'])
-        # if opts.use_gpu:
-        #     ms.set_seed(load_data['cuda_rng_state'][0])
-        # Set the random states
-        # Dumping of state was done before epoch callback, so do that now (model is loaded)
-
-        # baseline.epoch_callback(model, epoch_resume)
         print("Resuming after {}".format(epoch_resume))
         opts.epoch_start = epoch_resume + 1
         
