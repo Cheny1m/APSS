@@ -23,7 +23,7 @@ profiler*
 output*.png
 
 # torch
-nets/
-problems/
-torchoutputs/
-utils/
+/nets/
+/problems/
+/torchoutputs/
+/utils/
