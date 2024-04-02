@@ -103,7 +103,7 @@ def inference(
     # save this name to env
     os.environ["apss_log_path"] = record_file
     # model_tmp_path = os.path.join(RESOURCE_DIR,"epoch-14.ckpt")
-    checkpoint_path = "/root/APSS/checkpoint"
+    checkpoint_path = "/root/APSS/checkpoint/AttentionModelV2"
     def load_all_model():
         models={}
         models[2], _ = load_model(os.path.join(checkpoint_path,"pp_30_2/pp_30_2_final.ckpt"))
@@ -183,12 +183,67 @@ def inference(
         model = models[k]
         set_decode_type(model, "greedy")
         cost, log_likelihood, pi = model(input_data, ori_data, cost_c_data, return_pi=True)
-        # print(pi)
+        print(pi)
         # part = pi2partition(pi[0].tolist(),cost_e.size(0))
         part = pi2partition(pi[0].tolist(),cost_e.shape[0])
         time2= time.time()
         print("GNN cost: ", time2-time1, "cost: ", cost)
         return part, None
+
+    def pipe_rl_sample(models, L, cost_e, cost_c, k, B,batchsize=1024):
+        if k==1:
+            # return [cost_e.size(0)], None
+            return [cost_e.shape[0]], None
+        ori_data = cost_e.view(1,-1,1)
+        # cost_c_data = cost_c[None,...].cuda()
+        cost_c_data = cost_c[None,...]
+        max_c = cost_c.max()
+        count_c = 0
+        while max_c <1:
+            count_c+=1
+            max_c = max_c * 10
+        max_e = cost_e.max()
+        count_e = 0
+        while max_e <1:
+            count_e+=1
+            max_e = max_e * 10
+        print("count_e: ",count_e )
+        print("count_c: ",count_c )
+        
+        time1=time.time()
+        new_data = []
+        new_sample = []
+        # n_cost_e = pow(10,count_e-1) * cost_e
+        # n_cost_c = pow(10,count_c-1) * cost_c
+        n_cost_e = cost_e/cost_e.max()#pow(10,count_e-1) * cost_e
+        # n_cost_c = cost_c/cost_c.max()#pow(10,count_c-1) * cost_c
+        # n_cost_c = torch.ones((cost_c.size(0),cost_c.size(1))).cuda() * 0.5
+        n_cost_c = ops.ones((cost_c.shape[0],cost_c.shape[1])) * 0.5
+        for j in range(cost_e.shape[0]-1):
+            new_sample.append([sum(n_cost_e[:j+1]),sum(n_cost_e[j+1:])]+n_cost_c[j,:].tolist())
+        new_data.append(new_sample)
+        # input_data =  torch.FloatTensor(new_data).cuda()
+        input_data = mnp.array(new_data).astype(mnp.float32)
+        model = models[k]
+        set_decode_type(model, "greedy")
+        
+        cost, log_likelihood, pi = model(input_data, ori_data, cost_c_data, return_pi=True)
+        # print(pi)
+        best_partition = pi2partition(pi[0].tolist(),cost_e.shape[0])
+        time2= time.time()
+        # print("GNN cost: ", time2-time1, "cost: ", cost)
+        best_cost = pipe_cost(L, cost_e, cost_c, mindspore.tensor(k), B, best_partition)
+        set_decode_type(model, "sampling")
+        _, _, pis = model(input_data.tile((batchsize,1,1)), ori_data.tile((batchsize,1,1)), cost_c_data.tile((batchsize,1,1)), return_pi=True)
+        for i in range(pis.shape[0]):
+            part = pi2partition(pis[i,...].tolist(),cost_e.shape[0])
+            cost = pipe_cost(L, cost_e, cost_c, mindspore.tensor(k), B, part)
+            if cost<best_cost:
+                best_partition = part
+                best_cost=cost
+        print("best cost:", best_cost)
+        return best_partition, None
+    
     home_dir = "/root/cym/AMP" #os.environ['HOME']
 
     workdir_path = os.path.join(home_dir, "AMP/DeepSpeed/DeepSpeedExamples/Megatron-LM-v1.1.5-3D_parallelism")
@@ -218,7 +273,7 @@ def inference(
 
             self.profile_cost = {}
             #if self.estimate:
-            for mp_size in [1,2,4]:
+            for mp_size in [1,2,4,8]:
                 known_record = f"/root/APSS/resource/known_cost/{self.model_type}_{num_layers}_{mp_size}"
 
                 
@@ -308,8 +363,9 @@ def inference(
             if int(B.item()) == 1:
                 partition, _ = pipe_uniform(int(L.item()), int(pp.item()))
             else:
-                partition, _ = pipe_ast(len(cost_e), np.asarray(cost_e), np.asarray(cost_c), int(pp.item()), int(B.item()))
-                
+                # partition, _ = pipe_ast(len(cost_e), np.asarray(cost_e), np.asarray(cost_c), int(pp.item()), int(B.item()))
+                # partition, _ = pipe_rl(self.models, len(cost_e), cost_e, cost_c, int(pp.item()), int(B.item()))
+                partition, _ = pipe_rl_sample(self.models, len(cost_e), cost_e, cost_c, int(pp.item()), int(B.item()))
             print(f"apss gives partition: {partition}")
             cost = pipe_cost(L, cost_e, cost_c, pp, B, partition)
 
