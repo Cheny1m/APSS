@@ -12,14 +12,14 @@ def get_options(args=[]):
     parser.add_argument('--graph_size', type=int, default=30, help="The size of the problem graph")
     parser.add_argument('--num_split', type=int, default=15, help="The size of the problem graph")
     parser.add_argument('--node_size', type=int, default=30, help="The size of the problem graph")
-    parser.add_argument('--batch_size', type=int, default=512, help='Number of instances per batch during training')
+    parser.add_argument('--batch_size', type=int, default=512, help='512Number of instances per batch during training')
     parser.add_argument('--epoch_size', type=int, default=1280000, help='1280000Number of instances per epoch during training')
     parser.add_argument('--val_size', type=int, default=10000,
-                        help='Number of instances used for reporting validation performance')
+                        help='10000Number of instances used for reporting validation performance')
     parser.add_argument('--val_dataset', type=str, default=None, help='Dataset file to use for validation')
 
     # Model
-    parser.add_argument('--model', default='attention', help="Model, 'attention' (default) or 'pointer'")
+    parser.add_argument('--model', default='attention', help="Model, 'attention' (default) or 'attention'")
     parser.add_argument('--embedding_dim', type=int, default=128, help='Dimension of input embedding')
     parser.add_argument('--hidden_dim', type=int, default=128, help='Dimension of hidden layers in Enc/Dec')
     parser.add_argument('--n_encode_layers', type=int, default=3,
@@ -62,13 +62,13 @@ def get_options(args=[]):
                         help='Set to decrease memory usage by checkpointing encoder')
 
     # Misc
-    parser.add_argument('--log_step', type=int, default=200, help='Log info every log_step steps')
+    parser.add_argument('--log_step', type=int, default=100, help='Log info every log_step steps')
     parser.add_argument('--log_dir', default='logs', help='Directory to write TensorBoard information to')
     parser.add_argument('--run_name', default='run', help='Name to identify the run')
     parser.add_argument('--output_dir', default='outputs', help='Directory to write output models to')
     parser.add_argument('--epoch_start', type=int, default=0,
                         help='Start at epoch # (relevant for learning rate decay)')
-    parser.add_argument('--checkpoint_epochs', type=int, default=1,
+    parser.add_argument('--checkpoint_epochs', type=int, default=10,
                         help='Save checkpoint every n epochs (default 1), 0 to save no checkpoints')
     parser.add_argument('--load_path', help='Path to load model parameters and optimizer state from')
     parser.add_argument('--resume', help='Resume from previous checkpoint file')

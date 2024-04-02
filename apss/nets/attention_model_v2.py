@@ -1,24 +1,23 @@
 import math
 import psutil
 import os
+import json
 
 import mindspore as ms
 import mindspore.nn as nn
 import mindspore.ops as ops
 import mindspore.common.dtype as mstype
-import mindspore.common.initializer as init
 import mindspore.ops as ops
 from mindspore.common.initializer import initializer, Uniform
-from mindspore.nn.probability.distribution import Categorical
 
-# from apss.problems.pp.problem_pp import get_pp_costs,make_pp_state,make_pp_dataset,beam_search
 
 from apss.utils.tensor_functions import compute_in_batches
 from apss.utils.beam_search import CachedLookup
 from apss.utils.functions import sample_many
-from apss.problems.pp.state_pp import StatePP
 
 from .graph_encoder import GraphAttentionEncoder
+
+
 
 def set_decode_type(model, decode_type):
     # if isinstance(model, data_parallel):
@@ -56,7 +55,7 @@ class AttentionModelFixed:
     def __repr__(self):
         return f"AttentionModelFixed(node_embeddings={self.node_embeddings}, context_node_projected={self.context_node_projected}, glimpse_key={self.glimpse_key}, glimpse_val={self.glimpse_val}, logit_key={self.logit_key})"
 
-class AttentionModel(nn.Cell):
+class AttentionStepModel(nn.Cell):
     def __init__(self,
                  embedding_dim,
                  hidden_dim,
@@ -71,7 +70,7 @@ class AttentionModel(nn.Cell):
                  shrink_size=None,
                  num_split=None,
                  node_size=None):
-        super(AttentionModel, self).__init__()
+        super(AttentionStepModel, self).__init__()
 
         self.embedding_dim = embedding_dim
         self.hidden_dim = hidden_dim
@@ -92,14 +91,13 @@ class AttentionModel(nn.Cell):
         self.mask_logits = mask_logits
 
         self.problem = problem
-        # print("problem 实例:",self.problem)
         self.n_heads = n_heads
         self.checkpoint_encoder = checkpoint_encoder
         self.shrink_size = shrink_size
 
-        step_context_dim = 2 * embedding_dim
+        step_context_dim = embedding_dim
         node_dim = 2 + self.num_split
-        self.W_placeholder = ms.Parameter(initializer(Uniform(scale=1), [2 * embedding_dim],ms.float32))
+        self.W_placeholder = ms.Parameter(initializer(Uniform(scale=1), [embedding_dim],ms.float32))
         
         self.init_embed = nn.Dense(node_dim, embedding_dim)
 
@@ -112,6 +110,9 @@ class AttentionModel(nn.Cell):
         self.project_node_embeddings = nn.Dense(embedding_dim, 3 * embedding_dim,has_bias = False)
         self.project_fixed_context = nn.Dense(embedding_dim, embedding_dim,has_bias = False)
         self.project_step_context = nn.Dense(step_context_dim, embedding_dim,has_bias = False)
+        self.project_selected_context = nn.Dense(self.node_size-1, embedding_dim, has_bias=False)
+        self.project_remaining_context = nn.Dense(1, embedding_dim, has_bias=False)
+        
         assert embedding_dim % n_heads == 0
         self.project_out = nn.Dense(embedding_dim, embedding_dim,has_bias = False)
  
@@ -125,18 +126,17 @@ class AttentionModel(nn.Cell):
     # @ms.jit
     # @profile
     def construct(self, input, ori_input, cost_c_input, return_pi=False):
-        # encoder
-        # embeddings, _ = self.embedder(self._init_embed(input))
+
         embeddings, _ = self.embedder(self.init_embed(input))
         # decoder、Context embedding、Calculation of log-probabilities
-
         _log_p, pi = self._inner(input, embeddings) 
-        cost, mask = self.problem.get_costs(ori_input, cost_c_input, input, pi)
+        cost, mask = self.problem.get_costs(ori_input, cost_c_input, input, pi) 
         ll = self._calc_log_likelihood(_log_p, pi, mask)
     
         if return_pi:
             return cost, ll, pi
         return cost, ll
+
 
 
     def beam_search(self, *args, **kwargs):
@@ -187,14 +187,15 @@ class AttentionModel(nn.Cell):
         outputs = []
         sequences = []
         state = self.problem.make_state(input)
+     
         fixed = self._precompute(embeddings)
-
         i = 0
+        selected_dividers = ops.zeros((embeddings.shape[0],1,embeddings.shape[-1]))
         while True:
             if i >= self.num_split:
                 break
-
-            log_p, mask = self._get_log_p(fixed, state) # 传入两个实例StatePP和AttentionModelFixed
+            log_p, mask = self._get_log_p(fixed, state,selected_dividers) # 传入两个实例StatePP和AttentionModelFixed
+            # selected = self._select_node(log_p.exp()[:, 0, :], mask[:, 0, :])
             selected = self._select_node(ops.squeeze(ops.exp(log_p),1), ops.squeeze(mask,1))
             state = state.update(selected)
 
@@ -255,11 +256,12 @@ class AttentionModel(nn.Cell):
         return log_p, ops.arange(log_p.shape[-1], dtype=ops.dtype.int64).repeat(log_p.shape[0], 1)[:, None, :]
 
     # @profile
-    def _get_log_p(self, fixed, state, normalize=True):
-        query = fixed.context_node_projected + \
-                self.project_step_context(self._get_parallel_step_context(fixed.node_embeddings, state)) # shape = [batchsize,num_step,dim] = [1000,1,128]
-
-        # glimpse_K, glimpse_V, logit_K = self._get_attention_node_data(fixed, state)
+    def _get_log_p(self, fixed, state, selected_dividers,normalize=True):
+        step_embedding = self._get_parallel_step_context(fixed.node_embeddings, state)
+        selected_dividers += self.project_step_context(step_embedding)
+        selected_states = self.project_selected_context(state.visited.float())
+        remain_steps = self.project_remaining_context((self.num_split - state.visited.sum(axis=-1,keepdims=True)).float())
+        query = fixed.context_node_projected + selected_dividers + selected_states + remain_steps
         glimpse_K, glimpse_V, logit_K = fixed.glimpse_key, fixed.glimpse_val, fixed.logit_key
 
         mask = state.get_mask() # mask.shape = [1000,1,7]
@@ -295,11 +297,9 @@ class AttentionModel(nn.Cell):
                 return ops.tile(self.W_placeholder, (batch_size, 1, 1))
             else:
                 # return ops.gather_elements(embeddings,1,ops.broadcast_to(current_node[:,:,None], (batch_size , 2 , embeddings.shape[-1]))).reshape(batch_size, 1, -1)
-                return ops.gather_elements(embeddings,1,ops.tile(current_node[:,:,None], (1 , 2 , embeddings.shape[-1]))).reshape(batch_size, 1, -1)
-            
-        embeddings_per_step = ops.gather_elements(embeddings,1,ops.tile(current_node[:, 1:,None], (1, 1, embeddings.shape[-1])))
-        return ops.concat((self.W_placeholder[None, None, :],ops.concat((embeddings_per_step[:, 0:1, :],embeddings_per_step), 2)), 1)
-
+                return ops.gather_elements(embeddings,1,ops.tile(current_node[:,:,None], (1 , 1 , embeddings.shape[-1]))).reshape(batch_size, 1, -1)
+        else:
+            print("ERROR in _get_parallel_step_context")    
 
    
     def _one_to_many_logits(self, query, glimpse_K, glimpse_V, logit_K, mask):
@@ -315,6 +315,8 @@ class AttentionModel(nn.Cell):
             # 替换切片操作
             # mask = ops.expand_dims((ops.expand_dims(mask,0)),3).expand_as(compatibility)
             compatibility = ops.masked_fill(compatibility,ops.expand_dims((ops.expand_dims(mask,0)),3),-math.inf)
+        
+        # print("glimpse_V",glimpse_V,glimpse_V.shape)
         heads = ops.matmul(ops.softmax(compatibility, axis=-1), glimpse_V)
 
         glimpse = self.project_out(
@@ -328,9 +330,7 @@ class AttentionModel(nn.Cell):
         if self.tanh_clipping > 0:
             logits = ops.tanh(logits) * self.tanh_clipping
         if self.mask_logits:
-            # logits[mask] = -math.inf
             logits = ops.masked_fill(logits,mask,-math.inf)
-
 
         return logits, glimpse.squeeze(-2)
 
@@ -341,7 +341,6 @@ class AttentionModel(nn.Cell):
     def _make_heads(self, v, num_steps=None):
         assert num_steps is None or v.shape[1] == 1 or v.shape[1] == num_steps
 
-        # pynative代码
         return (
             v.view((v.shape[0], v.shape[1], v.shape[2], self.n_heads, -1))
             .broadcast_to((v.shape[0], v.shape[1] if num_steps is None else num_steps, v.shape[2], self.n_heads, -1))

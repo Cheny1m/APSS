@@ -9,6 +9,8 @@ import mindspore.ops.operations as ops
 
 def pipe_ast(L, cost_e, cost_c, k, B):
     time_dp_s = time.time()
+    for i in range(len(cost_e)):
+        cost_e[i] = float(cost_e[i].item())
     possible = [0]
     # 用双层循环，生成所有可能的stage组合
     for i in range(1, L+1):
@@ -144,16 +146,10 @@ def pipe_cost(L, cost_e, cost_c, k, B, partition):
     # print(partition)
     p = [s[0]-1]
     
-    # print("k:",int(k))
     for i in range(1, int(k)):
         p.append(p[i-1] + s[i])
-    # lens = torch.reshape(torch.sum(cost_e[:p[0]+1]), (-1,1))
     lens = mnp.reshape(mnp.sum(cost_e[:p[0] + 1]), (-1, 1))
-    #print(f"calculating cost: {cost_e} {cost_c} {k} {B} {partition}")
     for i in range(len(s)-1):
-        # lens = torch.cat([lens,torch.reshape(torch.sum(cost_e[p[i]+1:p[i+1]+1]), (-1,1))])
-        # print("ops.Concat的操作数：",mnp.reshape(mnp.sum(cost_e[p[i] + 1:p[i + 1] + 1]), (-1, 1)))
-        # lens = ops.Concat(axis=0)(lens,ops.Reshape()(ops.ReduceSum()(cost_e[p[i] + 1:p[i + 1] + 1]),(-1,1)))
         lens = ops.Concat(axis=0)((lens, mnp.reshape(mnp.sum(cost_e[p[i] + 1:p[i + 1] + 1]), (-1, 1))))
 
     # max_l = torch.max(lens)

@@ -1,12 +1,8 @@
 import os
 import subprocess
 import json
-# import spur
-import mindspore
 import mindspore.numpy as mnp
 
-# returns the rank to axis. If pp_deg=dp_deg=mp_deg=2, rank 3 gives (0,1,1).
-# This is deepspeed method
 def rank2axis(rank, mp_deg, dp_deg, pp_deg):
     pp = rank // (mp_deg * dp_deg)
     remainder = rank % (mp_deg * dp_deg)
@@ -18,7 +14,6 @@ def rank2axis(rank, mp_deg, dp_deg, pp_deg):
 
     return (pp, dp, mp)
 
-# returns the axis to rank. If pp_deg=dp_deg=mp_deg=2, (0,1,1) gives 3
 def axis2rank(axis, mp_deg, dp_deg, pp_deg):
     pp, dp, mp = axis
     return mp + mp_deg * dp + (mp_deg * dp_deg) * pp
@@ -32,19 +27,6 @@ def factor(N, upper=None):
             ret.append(i)
     return ret
 
-#def generate_ds_config(M, N, mp_deg, dp_deg, pp_deg):
-#    ds_config = torch.zeros(M, N)
-#    config = []
-#    cur_index = 1
-#    for i in range(int(pp_deg.item())):
-#        config.extend([cur_index] * (int(mp_deg.item()) * int(dp_deg.item())))
-#        cur_index += 1
-#
-#    for i in range(M):
-#        for j in range(N):
-#            ds_config[i][j] = config[i * N + j]    
-#    
-#    return ds_config
 
 def get_host():
     home = os.environ['HOME']
@@ -60,7 +42,6 @@ def remove_remote(hostname, path):
     # result = shell.run(["rm", "-rf", path])
     result = 1
 
-#def simulate(candidate_list, gbs, model_config, exp_name):
 def simulate(rank_maps, partitions, gbs, micro_bs_list, model_config, oth_list, exp_name):
     home_path = os.environ['HOME']
     exp_name = "simulate_" + exp_name

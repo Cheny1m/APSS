@@ -7,8 +7,6 @@ import subprocess
 import sys
 import os
 
-# import torch
-# import torch.nn as nn
 import mindspore
 import mindspore.nn as nn
 import mindspore.ops
@@ -121,7 +119,7 @@ def get_cost_e(cluster_info, model_config, parallel_config, amp_config):
     bottom = model_config["bottom"] 
     
     # Only do DP for transformer layer, skip the lambda layer for faster pipeline assignment
-    cost_e = [None] * int(dp.item())#torch.zeros((int(dp.item()), 28))
+    cost_e = [None] * int(dp.item())
     for i in range(int(dp.item())):
         cost_e[i] = []
 
@@ -212,7 +210,6 @@ def get_cost_e(cluster_info, model_config, parallel_config, amp_config):
     
     cost_e = mindspore.Tensor.from_numpy(np.stack(cost_e, axis=0))            
     cost_e = mindspore.ops.ReduceMean()(cost_e, axis=0)
-    #print(f"using cost_e: {cost_e} with sum {torch.sum(cost_e)}" )
     return cost_e
 
 def dp_cost(config, cluster_info,model_config, parallel_config, amp_config, partition):
@@ -278,7 +275,6 @@ def dp_cost(config, cluster_info,model_config, parallel_config, amp_config, part
     assert len(ds_partition) == pp + 1
                 
     # should be per-dp_group time
-    # max_dp = mindspore.ops.Zeros()(1,)
     max_dp = mindspore.Tensor([0.])
     for i in range(int(pp.item())):
         for j in range(int(mp.item())):
@@ -336,7 +332,6 @@ def predict(config, bs, mbs, cluster_info, model_config, amp_config, oth):
                 rank_node_map[counter] = j
                 counter += 1
                 
-        #print(f"AMP estimate default to {rank_map}")
     
     # valid config, inferred from sa 
     else:

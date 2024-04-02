@@ -1,8 +1,9 @@
 import os
 import sys
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-# pip install tqdm
-# from test import get_partiton_cost_sequence, pipe_ast,pi2partition
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_dir = os.path.dirname(current_dir)
+sys.path.append(project_dir)
 import numpy as np
 from apss.nets.attention_model import set_decode_type
 import time
@@ -17,22 +18,15 @@ from mindspore import Tensor
 # pip install tensorboard_logger
 
 from apss.nets.attention_model import AttentionModel
-from apss.utils import load_problem, load_model, load_model_temp#,torch_load_cpu
-import math
+from apss.utils import load_model#,torch_load_cpu
 import time
 from collections import defaultdict
-import operator
-import shutil
-import random
-import copy
 
 from tqdm import tqdm
 
 import numpy as np
 
 import mindspore.nn as nn
-# sys.path.append("/home/oj/distributed_floder/research/AMP/src/")
-# sys.path.append("/root/cym/AMP/src/")
 
 # pip install numpy
 from .sa import amp_no_placement_strategy
@@ -41,9 +35,6 @@ from .cost_het_cluster import  get_cost_e,dp_cost,get_cost_c
 from collections import defaultdict
 import time
 import json
-import copy
-
-import subprocess
 import sys
 import os
 
@@ -57,14 +48,15 @@ import mindspore.ops as ops
 import mindspore.context as context
 import numpy as np
 
-
-# home_path = "/home/oj/distributed_floder/research/AMP" #os.environ['HOME']
-# home_path = "/root/cym/AMP"
-# home_path = '../../../data'
-# dir_path = os.path.join(home_path, 'apss_main_logs')
-# if not os.path.exists(dir_path):
-#     os.mkdir(dir_path)
-def inference():
+def inference(
+    M=2,
+    N=2,
+    hidden_size = 1024,
+    sequence_length = 1024,
+    num_layers = 24,
+    vocab_size = 52256,
+    type_model = "gpt2"
+):
     with open('config.json', 'r') as f:
         config = json.load(f)
     RESOURCE_DIR = config["RESOURCE_DIR"]
@@ -72,35 +64,24 @@ def inference():
     if not os.path.exists(dir_path):
         os.mkdir(dir_path)
 # number of GPU per node, number of nodes
-    M = 4
-    N = 4
-
+# parameter
+    # M = 2
+    # N = 2
+    # print(M)
     # # inter-node bandwidth, intra-node bandwidth
-    # for i in range(N-1):
-    #         cluster_info[i] = [mindspore.nmp([10 * 1e9 / 32]).float(), torch.tensor([170 * 1e9 / 32]).float()]
-    # cluster_info[N-1] = [torch.tensor([50 * 1e9 / 32]).float(), torch.tensor([50 * 1e9 / 32]).float()]
-
-    # model_config = {"hidden_size": torch.tensor([1024]).float(), 
-    #                 "sequence_length": torch.tensor([1024]).float(), 
-    #                 "num_layers": torch.tensor([24]).float(), 
-    #                 "vocab_size":torch.tensor([52256]).float(),
-    #                 "type":"gpt2"}
-
-
     cluster_info = {}
-
     for i in range(N - 1):
         cluster_info[i] = [mnp.array([10 * 1e9 / 32]).astype(mnp.float32), mnp.array([170 * 1e9 / 32]).astype(mnp.float32)]
     cluster_info[N - 1] = [mnp.array([50 * 1e9 / 32]).astype(mnp.float32), mnp.array([50 * 1e9 / 32]).astype(mnp.float32)]
 
-    model_config = {
-        "hidden_size": mnp.array([1024]).astype(mnp.float32),
-        "sequence_length": mnp.array([1024]).astype(mnp.float32),
-        "num_layers": mnp.array([24]).astype(mnp.float32),
-        "vocab_size": mnp.array([52256]).astype(mnp.float32),
-        "type": "gpt2"
-    }
 
+    model_config = {
+        "hidden_size": mnp.array([hidden_size]).astype(mnp.float32),
+        "sequence_length": mnp.array([sequence_length]).astype(mnp.float32),
+        "num_layers": mnp.array([num_layers]).astype(mnp.float32),
+        "vocab_size": mnp.array([vocab_size]).astype(mnp.float32),
+        "type": type_model
+    }
 
     config_h = int((model_config["hidden_size"]).item())
     config_n = int(model_config["num_layers"].item())
@@ -121,25 +102,14 @@ def inference():
 
     # save this name to env
     os.environ["apss_log_path"] = record_file
-    model_tmp_path = os.path.join(RESOURCE_DIR,"epoch-14.ckpt")
+    # model_tmp_path = os.path.join(RESOURCE_DIR,"epoch-14.ckpt")
+    checkpoint_path = "/root/APSS/checkpoint/AttentionModelV2"
     def load_all_model():
         models={}
-        # models[2], _ = load_model("./outputs/pp_30/pp30_2_rollout_20230402T234551/epoch-163.pt")
-        # models[4],_ =  load_model("./outputs/pp_30/pp30_4_rollout_20230327T000146/epoch-99.pt")
-        # models[8],_ = load_model("./outputs/pp_30/pp30_8_rollout_20230402T234340/epoch-134.pt")
-        # models[16],_=  load_model("./outputs/pp_30/pp30_16_rollout_20230402T234155/epoch-62.pt")
-        # models[2] = models[2].eval()
-        # models[2] = models[2].cuda()
-        # models[4] = models[4].eval()
-        # models[4] = models[4].cuda()
-        # models[8] = models[8].eval()
-        # models[8] = models[8].cuda()
-        # models[16] = models[16].eval()
-        # models[16] = models[16].cuda()
-        models[2], _ = load_model_temp(model_tmp_path,1)
-        models[4],_ =  load_model_temp(model_tmp_path,3)
-        models[8],_ = load_model_temp(model_tmp_path,7)
-        models[16],_=  load_model_temp(model_tmp_path,15)
+        models[2], _ = load_model(os.path.join(checkpoint_path,"pp_30_2/pp_30_2_final.ckpt"))
+        models[4],_ =  load_model(os.path.join(checkpoint_path,"pp_30_4/pp_30_4_final.ckpt"))
+        models[8],_ =  load_model(os.path.join(checkpoint_path,"pp_30_8/pp_30_8_final.ckpt"))
+        models[16],_=  load_model(os.path.join(checkpoint_path,"pp_30_16/pp_30_16_final.ckpt"))
         models[2] = models[2].set_train(False)
         models[4] = models[4].set_train(False)
         models[8] = models[8].set_train(False)
@@ -147,7 +117,6 @@ def inference():
         return models
     
 
-    load_all_model()
     def pi2partition(pi,node_size):
         pi.sort()
         # print(pi)
@@ -182,9 +151,49 @@ def inference():
         if k==1:
             # return [cost_e.size(0)], None
             return [cost_e.shape[0]], None
-        # print(cost_e.size(),cost_e)
-        # print(cost_c.size(),cost_c)
-        # ori_data = cost_e.view(1,-1,1).cuda()
+        ori_data = cost_e.view(1,-1,1)
+        # cost_c_data = cost_c[None,...].cuda()
+        cost_c_data = cost_c[None,...]
+        max_c = cost_c.max()
+        count_c = 0
+        while max_c <1:
+            count_c+=1
+            max_c = max_c * 10
+        max_e = cost_e.max()
+        count_e = 0
+        while max_e <1:
+            count_e+=1
+            max_e = max_e * 10
+        print("count_e: ",count_e )
+        print("count_c: ",count_c )
+        
+        time1=time.time()
+        new_data = []
+        new_sample = []
+        n_cost_e = cost_e/cost_e.max()#pow(10,count_e-1) * cost_e
+        n_cost_c = cost_c/cost_c.max()#pow(10,count_c-1) * cost_c
+        for j in range(cost_e.shape[0]-1):
+            new_sample.append([sum(n_cost_e[:j+1]),sum(n_cost_e[j+1:])]+n_cost_c[j,:].tolist())
+        new_data.append(new_sample)
+        
+        # input_data =  torch.FloatTensor(new_data).cuda()
+        context.set_context(device_target="GPU")
+        input_data = mnp.array(new_data).astype(mnp.float32)
+
+        model = models[k]
+        set_decode_type(model, "greedy")
+        cost, log_likelihood, pi = model(input_data, ori_data, cost_c_data, return_pi=True)
+        print(pi)
+        # part = pi2partition(pi[0].tolist(),cost_e.size(0))
+        part = pi2partition(pi[0].tolist(),cost_e.shape[0])
+        time2= time.time()
+        print("GNN cost: ", time2-time1, "cost: ", cost)
+        return part, None
+
+    def pipe_rl_sample(models, L, cost_e, cost_c, k, B,batchsize=1024):
+        if k==1:
+            # return [cost_e.size(0)], None
+            return [cost_e.shape[0]], None
         ori_data = cost_e.view(1,-1,1)
         # cost_c_data = cost_c[None,...].cuda()
         cost_c_data = cost_c[None,...]
@@ -207,30 +216,34 @@ def inference():
         # n_cost_e = pow(10,count_e-1) * cost_e
         # n_cost_c = pow(10,count_c-1) * cost_c
         n_cost_e = cost_e/cost_e.max()#pow(10,count_e-1) * cost_e
-        n_cost_c = cost_c/cost_c.max()#pow(10,count_c-1) * cost_c
-        print(n_cost_e)
-        print(n_cost_c)
-        # for j in range(cost_e.size(0)-1):
+        # n_cost_c = cost_c/cost_c.max()#pow(10,count_c-1) * cost_c
+        # n_cost_c = torch.ones((cost_c.size(0),cost_c.size(1))).cuda() * 0.5
+        n_cost_c = ops.ones((cost_c.shape[0],cost_c.shape[1])) * 0.5
         for j in range(cost_e.shape[0]-1):
             new_sample.append([sum(n_cost_e[:j+1]),sum(n_cost_e[j+1:])]+n_cost_c[j,:].tolist())
         new_data.append(new_sample)
-        
         # input_data =  torch.FloatTensor(new_data).cuda()
-        context.set_context(device_target="GPU")
         input_data = mnp.array(new_data).astype(mnp.float32)
-
         model = models[k]
         set_decode_type(model, "greedy")
         
         cost, log_likelihood, pi = model(input_data, ori_data, cost_c_data, return_pi=True)
         # print(pi)
-        # part = pi2partition(pi[0].tolist(),cost_e.size(0))
-        part = pi2partition(pi[0].tolist(),cost_e.shape[0])
+        best_partition = pi2partition(pi[0].tolist(),cost_e.shape[0])
         time2= time.time()
-        print("GNN cost: ", time2-time1, "cost: ", cost)
-        return part, None
-        # gnn_cots = get_partiton_cost_sequence(ori_data.view(-1),cost_c_data[0,...],part)
-    # home_dir = "/home/oj/distributed_floder/research/AMP" #os.environ['HOME']
+        # print("GNN cost: ", time2-time1, "cost: ", cost)
+        best_cost = pipe_cost(L, cost_e, cost_c, mindspore.tensor(k), B, best_partition)
+        set_decode_type(model, "sampling")
+        _, _, pis = model(input_data.tile((batchsize,1,1)), ori_data.tile((batchsize,1,1)), cost_c_data.tile((batchsize,1,1)), return_pi=True)
+        for i in range(pis.shape[0]):
+            part = pi2partition(pis[i,...].tolist(),cost_e.shape[0])
+            cost = pipe_cost(L, cost_e, cost_c, mindspore.tensor(k), B, part)
+            if cost<best_cost:
+                best_partition = part
+                best_cost=cost
+        print("best cost:", best_cost)
+        return best_partition, None
+    
     home_dir = "/root/cym/AMP" #os.environ['HOME']
 
     workdir_path = os.path.join(home_dir, "AMP/DeepSpeed/DeepSpeedExamples/Megatron-LM-v1.1.5-3D_parallelism")
@@ -260,20 +273,23 @@ def inference():
 
             self.profile_cost = {}
             #if self.estimate:
-            for mp_size in [1,2,4]:
-                # known_cost directory stores the real forward time with correponding model parallel degree.
-                
-                # known_record = f"/home/oj/distributed_floder/research/AMP/src/known_cost/{self.model_type}_P3_{mp_size}"
-                known_record = f"/root/cym/AMP/src/known_cost/{self.model_type}_P3_{mp_size}"
+            for mp_size in [1,2,4,8]:
+                known_record = f"/root/APSS/resource/known_cost/{self.model_type}_{num_layers}_{mp_size}"
+
                 
                 cur_profile_cost1 = 3 * np.load(f"{known_record}.npy")
                 
-                # known_record = f"/home/oj/distributed_floder/research/AMP/src/known_cost/{self.model_type}_G4_{mp_size}"
-                known_record = f"/root/cym/AMP/src/known_cost/{self.model_type}_P3_{mp_size}"
+                known_record = f"/root/APSS/resource/known_cost/{self.model_type}_{num_layers}_{mp_size}"
+
                 cur_profile_cost2 = 3 * np.load(f"{known_record}.npy")
 
+                print("cur_profile_cost1:",cur_profile_cost1)
                 # average between different speed of GPUs
                 cur_profile_cost = cur_profile_cost1 * 0.75 + cur_profile_cost2 * 0.25
+                
+                # cur_profile_cost = cur_profile_cost[2:26]
+                print("cur_profile_cost:",cur_profile_cost)
+
                 self.profile_cost[str(mp_size)] = cur_profile_cost
                 #print(f"using profile cost with mp_size {mp_size}: {cur_profile_cost}")
         
@@ -346,13 +362,10 @@ def inference():
 
             if int(B.item()) == 1:
                 partition, _ = pipe_uniform(int(L.item()), int(pp.item()))
-                partition[0] += 2
-                partition[-1] += 4
             else:
                 # partition, _ = pipe_ast(len(cost_e), np.asarray(cost_e), np.asarray(cost_c), int(pp.item()), int(B.item()))
-                # partition, _ = pipe_rl_sample(self.models, len(cost_e), cost_e, cost_c, int(pp.item()), int(B.item()))
-                partition, _ = pipe_rl(self.models, len(cost_e), cost_e, cost_c, int(pp.item()), int(B.item()))
-                
+                # partition, _ = pipe_rl(self.models, len(cost_e), cost_e, cost_c, int(pp.item()), int(B.item()))
+                partition, _ = pipe_rl_sample(self.models, len(cost_e), cost_e, cost_c, int(pp.item()), int(B.item()))
             print(f"apss gives partition: {partition}")
             cost = pipe_cost(L, cost_e, cost_c, pp, B, partition)
 
@@ -413,5 +426,5 @@ def inference():
         for item in sorted_settings:
             fp.write(f"rank {sorted_settings.index(item)}: {item}")
             fp.write("\n")
+    return partition
 
-inference()

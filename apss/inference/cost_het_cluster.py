@@ -1,9 +1,4 @@
 from collections import defaultdict
-import time
-import json
-import copy
-
-import subprocess
 import sys
 import os
 
@@ -13,8 +8,6 @@ import mindspore.numpy as mnp
 import mindspore.ops.operations as ops
 import numpy as np
 import mindspore.nn as nn
-
-
 
 last_volume = mnp.zeros((1,))
 
@@ -84,17 +77,17 @@ def get_cost_c(cluster_info, model_config, parallel_config, amp_config, dp_index
     dp = parallel_config["dp"]
     pp = parallel_config["pp"]
     
-    _layer = ["embed2h", "noop"]
+    # _layer = ["embed2h", "noop"]
+    _layer = []
     for i in range(int(n.item())):
         _layer.append("transformer_layer")
   
-    _layer.extend(["noop","noop", "embed2v", "noop"])
+    # _layer.extend(["noop","noop", "embed2v", "noop"])
     _num_layer = len(_layer)
       
     # build layer activation lookup table. Noop exatly has the same activation as the previous op.
     # Leave bs factor outside.
     layer_volume = []
-    # last_volume = torch.zeros(1,)
     last_volume = mnp.zeros((1,))
     for i in range(_num_layer):
         layer_type = _layer[i]
@@ -111,7 +104,6 @@ def get_cost_c(cluster_info, model_config, parallel_config, amp_config, dp_index
             
     # Build communication cost between pipeline stages by looking up the cluster information
     cost_c = mnp.zeros((int(dp.item()), _num_layer-1, int(pp.item()-1)))
-    # cost_c = torch.zeros((int(dp.item()), _num_layer-1, int(pp.item()-1)))
     for i in range(int(dp.item())):    
         for j in range(int(pp.item()-1)):
             # get the slowest mp gpu connection
@@ -129,10 +121,7 @@ def get_cost_c(cluster_info, model_config, parallel_config, amp_config, dp_index
                 if cur_bandwidth < slowest_bandwidth:
                     slowest_bandwidth = cur_bandwidth
             for k in range(_num_layer-1):
-                # cost_c[i][k][j] = layer_volume[k]  / slowest_bandwidth
                 cost_c[i][k][j] = mindspore.ops.squeeze(layer_volume[k]  / slowest_bandwidth)
-    # cost_c = torch.mean(cost_c, dim=0)
-    # cost_c = ops.reduce_mean(cost_c, axis=0)
     cost_c = mindspore.ops.ReduceMean()(cost_c, axis=0)
 
     return cost_c
@@ -152,16 +141,18 @@ def get_cost_e(cluster_info, model_config, parallel_config, amp_config):
     pp = parallel_config["pp"]
 
     profile_cost = amp_config["profile_cost"]
-    _layer = ["embed2h", "noop"]
+    # _layer = ["embed2h", "noop"]
+    _layer = []
     for i in range(int(n.item())):
         _layer.append("transformer_layer")
     
-    _layer.extend(["noop","noop", "embed2v", "noop"])
+    # _layer.extend(["noop","noop", "embed2v", "noop"])
     _num_layer = len(_layer)
             
     cost_e = np.zeros((int(dp.item()), _num_layer))
 
     for i in range(int(dp.item())):
+        print("num_layer,profile_cost:",_num_layer,"166line",len(profile_cost["1"]))
         assert _num_layer == len(profile_cost["1"]), "predicted number of layers not equal to actual"
         
         # mp_avg is only used with placement ablation study. Ignore it in reproducing main results.
@@ -204,11 +195,12 @@ def dp_cost(config, cluster_info,model_config, parallel_config, amp_config, part
     dp = parallel_config["dp"]
     pp = parallel_config["pp"]
     
-    _layer = ["embed2h", "noop"]
+    # _layer = ["embed2h", "noop"]
+    _layer = []
     for i in range(int(n.item())):
         _layer.append("transformer_layer")
     
-    _layer.extend(["noop","noop", "embed2v", "noop"])
+    # _layer.extend(["noop","noop", "embed2v", "noop"])
     _num_layer = len(_layer)
         
     # First translate to deepspeed partition form
@@ -217,6 +209,7 @@ def dp_cost(config, cluster_info,model_config, parallel_config, amp_config, part
     for i in range(len(partition)):
         ds_partition.append(ds_partition[-1]+partition[i])
     #print(ds_partition, _num_layer)
+    print("ds_partition:",ds_partition[-1])
     assert ds_partition[-1] == _num_layer
     assert len(ds_partition) == pp + 1
                 
@@ -243,9 +236,6 @@ def dp_cost(config, cluster_info,model_config, parallel_config, amp_config, part
                         
             slowest = min(slowest, connectivity)
             dp_const = 2 * (dp-1) / (dp * slowest)
-            # dp_const = torch.tensor([dp_const])         
-            # param_count = torch.zeros(1,)
-            # dp_const = mnp.array([dp_const])  # Create a MindSpore tensor
             dp_const = mindspore.Tensor([dp_const.item()])
 
             # param_count = mnp.zeros((1,))     # Create a MindSpore tensor with zeros
@@ -265,7 +255,6 @@ def dp_cost(config, cluster_info,model_config, parallel_config, amp_config, part
                 else:
                     raise RuntimeError("Unknown layer type.")
                         
-            #print(f"dp: {dp_const} and param {param_count}")
             cur_dp = dp_const * param_count
             if cur_dp > max_dp:
                 max_dp = cur_dp
@@ -295,18 +284,11 @@ def predict(config, bs, mbs, cluster_info, model_config, amp_config, oth):
                 rank_map[j].append(counter)
                 rank_node_map[counter] = j
                 counter += 1
-                
-        #print(f"AMP estimate default to {rank_map}")
-    
-    # valid config, inferred from sa 
+                 
     else:
-        # config = torch.from_numpy(config)
-        # pp = torch.max(config).float()
         config = mnp.array(config)                  # Create a MindSpore tensor from NumPy array
         pp = ops.maximum(config).astype(mnp.float32)  # Calculate the maximum value using ops.maximum and convert to float32
         
-        # infer rank_map: given node name, returns the global mapped rank(int) in (pp, dp, mp) order
-        # rank_node_map: given rank, returns the node
         rank_map = defaultdict(list)
         rank_node_map = dict()
     

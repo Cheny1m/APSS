@@ -5,10 +5,7 @@ from mindspore import Tensor
 from mindspore.ops import functional as F
 
 class CustomReinforceLoss(nn.Cell):
-    # def __init__(self, model, baseline):
-    #     super(CustomReinforceLoss, self).__init__()
-    #     self.model = model
-    #     self.baseline = baseline
+
     def __init__(self):
         super(CustomReinforceLoss, self).__init__()
         self.reinforce_loss = None

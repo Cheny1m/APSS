@@ -148,13 +148,6 @@ def load_model_temp(path, num_sp, epoch=None):
         num_split=num_sp,
         node_size=args.get('node_size', None)
     )
-    # Overwrite model parameters by parameters to load
-    # load_data = mindspore_load_cpu(model_filename)
-    # model.load_state_dict({**model.state_dict(), **load_data.get('model', {})})
-
-    # model, *_ = _load_model_file(model_filename, model)
-
-    # model.eval()  # Put in eval mode
     model.set_train(False)
 
     return model, args

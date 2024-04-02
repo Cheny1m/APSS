@@ -7,13 +7,101 @@ import mindspore as ms
 import mindspore.nn as nn
 import mindspore.communication as communication
 from mindspore.communication import init,get_rank,get_group_size
+from mindspore.amp import auto_mixed_precision
 
 from apss.nets.attention_model import AttentionModel
+from apss.nets.attention_model_v2 import AttentionStepModel
 from apss.utils import load_problem
+from apss.utils.reinforce_loss import CustomReinforceLoss
 
 from .options import get_options
-from .train_mc import train_epoch, validate
+from .train_mc import validate,train_all #,train_epoch
 from .reinforce_baselines_pp import  RolloutBaselinePP,WarmupBaseline,NoBaseline
+
+import gc
+import os
+import time
+from tqdm import tqdm
+import math
+import random
+import json
+import psutil
+import sys
+
+import mindspore.dataset as ds
+import mindspore.ops as ops
+import mindspore as ms
+from mindspore import save_checkpoint
+from mindspore import Tensor
+import mindspore.common.dtype as mstype
+from mindspore.communication.management import init
+
+from apss.nets.attention_model import set_decode_type
+from apss.utils.log_utils import log_values
+# from apss.problems.pp.problem_pp import get_pp_costs
+from apss.nets.attention_model import _calc_log_likelihood
+
+from .test import test
+from .test import get_partiton_cost_sequence
+
+from apss.utils.reinforce_loss import CustomReinforceLoss
+
+def pi2partition(pi,node_size):
+    pi.sort()
+    assert node_size > pi[-1]+1, print(node_size,pi)
+    piadd1 = [i+1 for i in pi]
+    piadd1 = [0] + piadd1 + [node_size]
+    partition = []
+    for i, p in enumerate(piadd1):
+        if i ==0:
+            continue
+        partition.append(p - piadd1[i-1])
+    return partition
+
+# MindSpore's DataParallel mode provides direct access to the model's network.
+def get_inner_model(model):
+    # parallel_mode = context.get_auto_parallel_context("parallel_mode")
+    # if parallel_mode in (ParallelMode.SEMI_AUTO_PARALLEL, ParallelMode.AUTO_PARALLEL):
+    #     return model._network
+    # else:
+    #     return model
+    return model
+
+def validate(model, dataset, opts):
+    print('Validating...')
+    cost,pi = rollout(model, dataset, opts)
+    avg_cost = cost.mean()
+    print('Validation overall avg_cost: {} +- {}'.format(
+        avg_cost, cost.std() / math.sqrt(len(cost))))
+    return avg_cost
+
+# @profile
+def rollout(model, dataset, opts):
+    set_decode_type(model, "greedy")
+    model.set_train(False)
+
+    def eval_model_bat(bat, ori_bat, cost_c_bat):
+        cost, _, pi = model(bat,ori_bat,cost_c_bat,return_pi = True) # 内存增加
+        return cost,pi
+
+    bats = []
+    pis = []
+
+    ms_dataset = ds.GeneratorDataset(source=dataset,column_names=["data", "ori_data", "cost_c_data"],num_parallel_workers=1)
+    ms_dataset = ms_dataset.batch(batch_size=opts.eval_batch_size) 
+
+    for bat, ori_bat,cost_c_bat in tqdm(ms_dataset.create_tuple_iterator(),total = math.ceil(len(dataset) / opts.eval_batch_size)):# # 内存增长
+        cost, pi = eval_model_bat(bat,ori_bat,cost_c_bat)
+        bats.append(cost)
+        pis.append(pi)
+
+    bats = ops.concat(bats, 0)
+    pis = ops.concat(pis, 0)
+    return bats, pis.asnumpy()
+
+def clip_grad_norms(param_groups, max_norm=math.inf):
+    grad_norms = ops.clip_by_global_norm(param_groups,max_norm if max_norm > 0 else math.inf)
+    return grad_norms,grad_norms
 
 with open('config.json', 'r') as f:
     config = json.load(f)
@@ -21,6 +109,11 @@ RESOURCE_DIR = config["RESOURCE_DIR"]
 CONTEXT_MODE = config["CONTEXT_MODE"]
 DEVICE_TARGET = config["DEVICE_TARGET"]
     
+
+with open('config.json', 'r') as f:
+    config = json.load(f)
+RESOURCE_DIR = config["RESOURCE_DIR"]
+
 
 def run(opts):
 
@@ -31,12 +124,6 @@ def run(opts):
     # Set the random seed
     ms.set_seed(opts.seed)
 
-    # Set the device，PYNATIVE_MODE
-
-    # device_target = "GPU" if opts.use_cuda else "CPU"
-    # ms.set_context(device_target=device_target, device_id = 1, mode=ms.PYNATIVE_MODE)
-
-    ms.set_context(device_target=DEVICE_TARGET, device_id = 0, mode=CONTEXT_MODE)
     print("device:",ms.get_context("device_target"),"\nmode:",ms.get_context("mode"))
 
     # Optionally configure tensorboard/ install tensorflow and tensorboard_logger. mindinsight can be uesed for this.
@@ -69,7 +156,8 @@ def run(opts):
 
     # Initialize model
     model_class = {
-        'attention': AttentionModel
+        'attention': AttentionModel,
+        'attention_v2': AttentionStepModel,
     }.get(opts.model, None)
     assert model_class is not None, "Unknown model: {}".format(model_class)
     model = model_class(
@@ -86,6 +174,7 @@ def run(opts):
         num_split=opts.num_split,
         node_size=opts.node_size
     )
+
     print("The model has been initialized!")
     
     # get model form model or cell 
@@ -111,32 +200,8 @@ def run(opts):
     if opts.bl_warmup_epochs > 0:
         print(opts.bl_warmup_epochs)
         baseline = WarmupBaseline(baseline, opts.bl_warmup_epochs, warmup_exp_beta=opts.exp_beta)
-
-    # Load baseline from data, make sure script is called with same type of baseline
-    # if 'baseline' in load_data:
-    #     print('baseline' in load_data)
-    #     baseline.load_state_dict(load_data['baseline'])
-
-
-    # Initialize learning rate scheduler, decay by lr_decay once per epoch!
-
-    # # lr_scheduler = lr_scheduler.LambdaLR(optimizer, lambda epoch: opts.lr_decay ** epoch)
-
-    # def learning_rate_function(lr_decay,epoch):
-    #     return lr_decay ** epoch
-    # lr_scheduler = LearningRateScheduler(learning_rate_function(opts.lr_decay,epoch))
-    
     # 在训练过程中，优化器以当前step(epoch)为输入调用该实例，得到当前的学习率(使用decay_steps=1，达到原式子效果)
     lr_scheduler = nn.ExponentialDecayLR(learning_rate=opts.lr_model, decay_rate=opts.lr_decay,decay_steps=1,is_stair=True)
-    # lr_scheduler = lr_scheduler(epoch)
-    # optimizer.group_lr = lr_scheduler
-    # print("optimizer:",optimizer.group_lr.learning_rate)
-
-    # Initialize optimizer
-    # params = [{'params': model.trainable_params(), 'lr': opts.lr_model}]
-    # if len(baseline.get_learnable_parameters()) > 0:
-    #     params += [{'params': baseline.get_learnable_parameters(), 'lr': opts.lr_critic}]
-    # optimizer = optim.Adam(params=params)
 
     group_params = [{'params': model.trainable_params(), 'lr': lr_scheduler}]
     if len(baseline.get_learnable_parameters()) > 0:
@@ -147,15 +212,6 @@ def run(opts):
         ms.load_param_into_net(optimizer,load_data)
         print("Optimizer parameters are loaded!")
 
-    # Load optimizer state
-    # if 'optimizer' in load_data:
-    #     param_dict = load_checkpoint(load_path)
-    #     optimizer.load_state_dict(param_dict['optimizer'])
-    #     for state in optimizer.get_states():
-    #         for k, v in state.items():
-    #             if isinstance(v, ms.Tensor):
-    #                 state[k] = v
-
     # Start the actual training loop
     val_dataset = problem.make_dataset(
         filename=os.path.join(RESOURCE_DIR,opts.val_dataset),size=opts.graph_size, num_samples=opts.val_size, distribution=opts.data_distribution,num_split=opts.num_split)
@@ -164,33 +220,38 @@ def run(opts):
         if "rng_state" in load_data:
             ms.set_seed(load_data["rng_state"])
         epoch_resume = int(os.path.splitext(os.path.split(opts.resume)[-1])[0].split("-")[1])
-        # set_seed(load_data['rng_state'])
-        # if opts.use_gpu:
-        #     ms.set_seed(load_data['cuda_rng_state'][0])
-        # Set the random states
-        # Dumping of state was done before epoch callback, so do that now (model is loaded)
-
-        # baseline.epoch_callback(model, epoch_resume)
         print("Resuming after {}".format(epoch_resume))
         opts.epoch_start = epoch_resume + 1
         
     print("采用的baseline是：", baseline)
-    
+    loss_fn = CustomReinforceLoss()
     if opts.eval_only:
         validate(model, val_dataset, opts)
     else:
-        for epoch in range(opts.epoch_start, opts.epoch_start + opts.n_epochs):
-            train_epoch(
-                model,
-                optimizer,
-                baseline,
-                lr_scheduler,
-                epoch,
-                val_dataset,
-                problem,
-                tb_logger,
-                opts
-            )
+        # for epoch in range(opts.epoch_start, opts.epoch_start + opts.n_epochs):
+        #     train_epoch(
+        #         model,
+        #         optimizer,
+        #         baseline,
+        #         loss_fn,
+        #         lr_scheduler,
+        #         epoch,
+        #         val_dataset,
+        #         problem,
+        #         tb_logger,
+        #         opts
+        #     )
+        train_all(
+            model,
+            optimizer,
+            baseline,
+            loss_fn,
+            lr_scheduler,
+            val_dataset,
+            problem,
+            tb_logger,
+            opts
+        )
 
 if __name__ == "__main__":
     run(get_options())
