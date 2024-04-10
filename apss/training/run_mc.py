@@ -39,7 +39,6 @@ from mindspore.communication.management import init
 from apss.nets.attention_model import set_decode_type
 from apss.utils.log_utils import log_values
 # from apss.problems.pp.problem_pp import get_pp_costs
-from apss.nets.attention_model import _calc_log_likelihood
 
 from .test import test
 from .test import get_partiton_cost_sequence

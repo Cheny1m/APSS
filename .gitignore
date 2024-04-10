@@ -22,7 +22,7 @@ rank_0/
 profiler*
 output*.png
 
-# torch
+# torch_repli
 /nets/
 /problems/
 /torchoutputs/

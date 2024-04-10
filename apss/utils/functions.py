@@ -58,7 +58,8 @@ def load_args(filename):
 
 def load_model(path, epoch=None):
     from apss.nets.attention_model import AttentionModel
-
+    from apss.nets.attention_model_v2 import AttentionStepModel
+    
     if os.path.isfile(path):
         model_filename = path
         path = os.path.dirname(model_filename)
@@ -78,8 +79,9 @@ def load_model(path, epoch=None):
     problem = load_problem(args['problem'])
 
     model_class = {
-        'attention': AttentionModel
-    }.get(args.get('model', 'attention'), None)
+        'attention': AttentionModel,
+        'attention_v2': AttentionStepModel,
+    }.get(args.get('model', None), None)
     assert model_class is not None, "Unknown model: {}".format(model_class)
 
     model = model_class(
