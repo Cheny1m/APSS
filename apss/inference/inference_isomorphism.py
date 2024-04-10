@@ -16,7 +16,7 @@ import mindspore.nn.optim as optim
 from mindspore import Tensor
 
 from apss.nets.attention_model import AttentionModel
-from apss.utils import load_model#,torch_load_cpu
+from apss.utils import load_model
 import time
 from collections import defaultdict
 
@@ -228,15 +228,8 @@ def inference(
                 best_cost=cost
         print("best cost:", best_cost)
         return best_partition, None
-    
-    home_dir = "/root/cym/AMP" #os.environ['HOME']
 
-    workdir_path = os.path.join(home_dir, "AMP/DeepSpeed/DeepSpeedExamples/Megatron-LM-v1.1.5-3D_parallelism")
-    example_path = os.path.join(workdir_path, "examples")
-    sys.path.append(workdir_path)
-    sys.path.append(example_path)
-
-    class AMP(nn.Cell):
+    class APSS(nn.Cell):
         def __init__(self, model_config, exp_name, placement=False):
             
             super().__init__()
@@ -369,7 +362,7 @@ def inference(
             rank_map, partition, amp_pred = self.predict(config, bs, micro_bs, cluster_info, model_config, amp_config, oth)
             return rank_map, partition, amp_pred
     global_bs = 32
-    model = AMP(model_config, exp_name)
+    model = APSS(model_config, exp_name)
     assert (global_bs % M == 0) and (global_bs % N == 0), "global batch size is too irrgular"
 
     want_simulate = [] 
