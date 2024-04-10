@@ -86,6 +86,8 @@ class PP(object):
 
 # 由于MindSpore框架对于单算子的执行只支持单线程操作，但是在自定义数据集中使用了Tensor的运算操作，即会调到框架的算子执行，由于数据集的处理使用了多线程操作，因此导致整体的执行顺序错乱，出现空指针的错误。
 # 将自定义数据集中的Tensor操作改为使用原生numpy进行计算,从而保证可以多线程执行
+#     
+
 import numpy as np
 import os
 import pickle
