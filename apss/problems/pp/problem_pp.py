@@ -46,8 +46,12 @@ class PP(object):
         p = ops.concat((pi,node_size_tensor),-1)
         data = ops.cumsum(ori_dataset.squeeze(-1),-1)
         index_data = ops.gather(data,p,1,1)
-        index_data = ops.cast(index_data,ms.int32)
-        index_data = ops.concat((ops.zeros((index_data.shape[0],1),dtype=ms.int32),index_data),-1)
+        # 在nvidia环境中请使用下面两行代码：
+        # index_data = ops.cast(index_data,ms.int32)
+        # index_data = ops.concat((ops.zeros((index_data.shape[0],1),dtype=ms.int32),index_data),-1)
+        # 在mindspore环境中，请使用这两行代码：
+        index_data = ops.cast(index_data,ms.float32)
+        index_data = ops.concat((ops.zeros((index_data.shape[0],1)),index_data),-1)
         max_sub_seq_cost,_  = ops.max(ops.diff(index_data),-1)
         indices = ops.tile(ops.arange(pi.shape[-1]),(cost_c_dataset.shape[0],1))
         cost_data = cost_c_dataset.reshape(cost_c_dataset.shape[0],cost_c_dataset.shape[1]*cost_c_dataset.shape[2])
