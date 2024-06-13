@@ -15,5 +15,6 @@
 * 可能需要的挂载：
     * 在248服务器上要挂载欧博原来在249上的torch代码：udo mount -t nfs 211.83.111.249:/data01/oujie/crlsf-pp /home/oj/distributed_floder/128_share_data01_oj/crlsf-pp
     * 在249服务器上挂载我们在248服务上的APSS代码：sudo mount -t nfs 211.83.111.248:/data01/cym/MindSpore /home/upa1/cym/MindSpore
+    * 在249上需要将/data01/oujie/crlsf-pp/outputs映射进入容器内部的/root/APSS/torchoutputs。由于这部分太大，不放入git中。【具体可使用docker inspect 7e952a3d15a8查看mount详情】
 
 * 在211.83.111.249:/home/upa1/cym/MindSpore/APSS下进行git操作。可能需要的密钥：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
