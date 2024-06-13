@@ -10,13 +10,15 @@ import time
 import json
 import pprint as pp
 
+# import torch.multiprocessing as mp
 import multiprocessing as mp
 import mindspore
 import mindspore.nn.optim as optim
 from mindspore import Tensor
+# pip install tensorboard_logger
 
 from apss.nets.attention_model import AttentionModel
-from apss.utils import load_model
+from apss.utils import load_model#,torch_load_cpu
 import time
 from collections import defaultdict
 
@@ -26,7 +28,9 @@ import numpy as np
 
 import mindspore.nn as nn
 
+# pip install numpy
 from .sa import amp_no_placement_strategy
+# pip install spur
 from .cost_het_cluster import  get_cost_e,dp_cost,get_cost_c
 from collections import defaultdict
 import time
@@ -63,6 +67,7 @@ def inference(
 # parameter
     # M = 2
     # N = 2
+    # print(M)
     # # inter-node bandwidth, intra-node bandwidth
     cluster_info = {}
     for i in range(N - 1):
@@ -141,10 +146,13 @@ def inference(
         for i in range(pp-1):
             max_sub_seq_cost += cost_c_data[p[i]][i]
         return max_sub_seq_cost
+    # partition, _ = pipe_ast(len(cost_e), np.asarray(cost_e), np.asarray(cost_c), int(pp.item()), int(B.item()))
     def pipe_rl(models, L, cost_e, cost_c, k, B):
         if k==1:
+            # return [cost_e.size(0)], None
             return [cost_e.shape[0]], None
         ori_data = cost_e.view(1,-1,1)
+        # cost_c_data = cost_c[None,...].cuda()
         cost_c_data = cost_c[None,...]
         max_c = cost_c.max()
         count_c = 0
@@ -168,6 +176,7 @@ def inference(
             new_sample.append([sum(n_cost_e[:j+1]),sum(n_cost_e[j+1:])]+n_cost_c[j,:].tolist())
         new_data.append(new_sample)
         
+        # input_data =  torch.FloatTensor(new_data).cuda()
         context.set_context(device_target="GPU")
         input_data = mnp.array(new_data).astype(mnp.float32)
 
@@ -175,6 +184,7 @@ def inference(
         set_decode_type(model, "greedy")
         cost, log_likelihood, pi = model(input_data, ori_data, cost_c_data, return_pi=True)
         print(pi)
+        # part = pi2partition(pi[0].tolist(),cost_e.size(0))
         part = pi2partition(pi[0].tolist(),cost_e.shape[0])
         time2= time.time()
         print("GNN cost: ", time2-time1, "cost: ", cost)
@@ -182,8 +192,10 @@ def inference(
 
     def pipe_rl_sample(models, L, cost_e, cost_c, k, B,batchsize=1024):
         if k==1:
+            # return [cost_e.size(0)], None
             return [cost_e.shape[0]], None
         ori_data = cost_e.view(1,-1,1)
+        # cost_c_data = cost_c[None,...].cuda()
         cost_c_data = cost_c[None,...]
         max_c = cost_c.max()
         count_c = 0
@@ -205,15 +217,18 @@ def inference(
         # n_cost_c = pow(10,count_c-1) * cost_c
         n_cost_e = cost_e/cost_e.max()#pow(10,count_e-1) * cost_e
         # n_cost_c = cost_c/cost_c.max()#pow(10,count_c-1) * cost_c
+        # n_cost_c = torch.ones((cost_c.size(0),cost_c.size(1))).cuda() * 0.5
         n_cost_c = ops.ones((cost_c.shape[0],cost_c.shape[1])) * 0.5
         for j in range(cost_e.shape[0]-1):
             new_sample.append([sum(n_cost_e[:j+1]),sum(n_cost_e[j+1:])]+n_cost_c[j,:].tolist())
         new_data.append(new_sample)
+        # input_data =  torch.FloatTensor(new_data).cuda()
         input_data = mnp.array(new_data).astype(mnp.float32)
         model = models[k]
         set_decode_type(model, "greedy")
         
         cost, log_likelihood, pi = model(input_data, ori_data, cost_c_data, return_pi=True)
+        # print(pi)
         best_partition = pi2partition(pi[0].tolist(),cost_e.shape[0])
         time2= time.time()
         # print("GNN cost: ", time2-time1, "cost: ", cost)
@@ -228,8 +243,15 @@ def inference(
                 best_cost=cost
         print("best cost:", best_cost)
         return best_partition, None
+    
+    home_dir = "/root/cym/AMP" #os.environ['HOME']
 
-    class APSS(nn.Cell):
+    workdir_path = os.path.join(home_dir, "AMP/DeepSpeed/DeepSpeedExamples/Megatron-LM-v1.1.5-3D_parallelism")
+    example_path = os.path.join(workdir_path, "examples")
+    sys.path.append(workdir_path)
+    sys.path.append(example_path)
+
+    class AMP(nn.Cell):
         def __init__(self, model_config, exp_name, placement=False):
             
             super().__init__()
@@ -237,7 +259,7 @@ def inference(
             #self.estimate = estimate
             self.model_type = model_config["type"]
             self.placement = placement
-            # assert self.model_type == "gpt2" 
+            assert self.model_type == "gpt2" 
             self.init_param()
             
         def init_param(self):
@@ -265,6 +287,7 @@ def inference(
                 # average between different speed of GPUs
                 cur_profile_cost = cur_profile_cost1 * 0.75 + cur_profile_cost2 * 0.25
                 
+                # cur_profile_cost = cur_profile_cost[2:26]
                 print("cur_profile_cost:",cur_profile_cost)
 
                 self.profile_cost[str(mp_size)] = cur_profile_cost
@@ -310,6 +333,7 @@ def inference(
 
                 if pp >= (L + 2):
                     print(f"early return with pp={pp}, L={L}")
+                    # return None, None, torch.tensor([float("inf")])
                     return None, None, mindspore.tensor([float("inf")])
                 m = oth["mp_deg"]
                 n = oth["dp_deg"]
@@ -362,7 +386,7 @@ def inference(
             rank_map, partition, amp_pred = self.predict(config, bs, micro_bs, cluster_info, model_config, amp_config, oth)
             return rank_map, partition, amp_pred
     global_bs = 32
-    model = APSS(model_config, exp_name)
+    model = AMP(model_config, exp_name)
     assert (global_bs % M == 0) and (global_bs % N == 0), "global batch size is too irrgular"
 
     want_simulate = [] 
@@ -386,6 +410,7 @@ def inference(
             model_args = (fake_config, global_bs, mbs, cluster_info, model_config, oth)    
             if (M*N)/(mp*dp)>30:
                 continue
+            # with torch.no_grad():
             rank_map, partition, cost = model(model_args)
             
             want_simulate.append(((mbs, oth, rank_map, partition), cost))
