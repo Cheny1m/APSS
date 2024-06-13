@@ -6,7 +6,7 @@ import subprocess
 
 if __name__ == "__main__":
     args_ = parse_arguments()
-partition = inference(M = args_.number_of_GPU_per_node,N = args_.number_of_nodes, hidden_size=args_.hidden_size,sequence_length=args_.sequence_length,num_layers=args_.num_layers,vocab_size=args_.vocab_size,type_model=args_.type)
+partition = inference(M = args_.number_of_GPU_per_node,N = args_.number_of_nodes,hidden_size=args_.hidden_size,sequence_length=args_.sequence_length,num_layers=args_.num_layers,vocab_size=args_.vocab_size,type_model=args_.type)
 
 partition_str = ','.join(map(str, partition))
 os.environ['PARTITION'] = partition_str

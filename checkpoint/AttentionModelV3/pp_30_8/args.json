@@ -1,12 +1,12 @@
 {
  "problem": "pp",
  "graph_size": 30,
- "num_split": 3,
+ "num_split": 7,
  "node_size": 30,
  "batch_size": 512,
  "epoch_size": 1280000,
  "val_size": 10000,
- "val_dataset": "data/pp/pp_30_4_validation_seed4321.pkl",
+ "val_dataset": "data/pp/pp_30_8_validation_seed4321.pkl",
  "model": "attention_v2",
  "embedding_dim": 128,
  "hidden_dim": 128,
@@ -24,7 +24,7 @@
  "exp_beta": 0.8,
  "baseline": "rollout",
  "bl_alpha": 0.05,
- "bl_warmup_epochs": 1,
+ "bl_warmup_epochs": 0,
  "eval_batch_size": 1024,
  "checkpoint_encoder": false,
  "shrink_size": null,
@@ -32,7 +32,7 @@
  "run_test": true,
  "log_step": 2000,
  "log_dir": "logs",
- "run_name": "v2_pp30_4_rollout_20230404T143627",
+ "run_name": "v3_pp30_8_rollout_20230418T170321",
  "output_dir": "outputs",
  "epoch_start": 0,
  "checkpoint_epochs": 1,
@@ -41,5 +41,5 @@
  "no_tensorboard": false,
  "no_progress_bar": false,
  "use_cuda": true,
- "save_dir": "outputs/pp_30/v2_pp30_4_rollout_20230404T143627"
+ "save_dir": "outputs/pp_30/v3_pp30_8_rollout_20230418T170321"
 }

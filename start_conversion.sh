@@ -4,14 +4,14 @@
 # bash start_conversion.sh
 
 # 预设参数
-PTH_PATH="/root/APSS/torchoutputs/pp_30/v2_pp30_8_rollout_20230405T223800/"   # /root/APSS/torchoutputs/pp_30/
-PTH_NAME="/root/APSS/torchoutputs/pp_30/v2_pp30_8_rollout_20230405T223800/epoch-99.pt"
-NUM_SPLIT=7  # [1,3,7,15]
+PTH_PATH="/root/APSS/torchoutputs/pp_30/v3_pp30_16_rollout_20230420T145616/"   # /root/APSS/torchoutputs/pp_30/
+PTH_NAME="/root/APSS/torchoutputs/pp_30/v3_pp30_16_rollout_20230420T145616/epoch-148.pt"
+NUM_SPLIT=15  # [1,3,7,15]
 
 
 # 无需设置
 NODE_SIZE=30 # [30]
-MODEL_VERSION="v2"
+MODEL_VERSION="v3"
 NUM_SPLIT_PLUS_ONE=$((NUM_SPLIT + 1))
 CKPT_PATH="/root/APSS/checkpoint/pp_${NODE_SIZE}_${NUM_SPLIT_PLUS_ONE}_${MODEL_VERSION}"
 CKPT_NAME="${CKPT_PATH}/pp_${NODE_SIZE}_${NUM_SPLIT_PLUS_ONE}_final"   # /root/APSS/resource/outputs/pp_NODE_SIZE/pp_NODE_SIZE_NUM_SPLIT_final
