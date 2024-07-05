@@ -60,5 +60,5 @@ python -m apss.inference.run_inference (-n 1 -m 1 --hidden_size 1024 --sequence_
 ## Contributors
 
 <a href="https://github.com/your-repository/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=Cheny1m/APSS" />
+  <img src="https://contrib.rocks/image?repo=Cheny1m/APSS"/>
 </a>
