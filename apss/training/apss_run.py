@@ -1,3 +1,16 @@
+# 放入华为云服务器运行时需取消注释下面代码
+# import sys
+# import subprocess
+
+# def install_tensorboard():
+#   try:
+#     subprocess.check_call([sys.executable, "-m", "pip", "install", "tensorboard_logger"])
+#     print("tensorboard_logger 安装成功")
+#   except subprocess.CalledProcessError as e:
+#     print(f"安装 TensorBoard时发生错误：{e}")
+    
+# install_tensorboard()
+
 import os
 import argparse
 import sys
@@ -21,6 +34,7 @@ def main():
     parser.add_argument('--graph_size', type=int, required=True, choices = [8,18,25,30,42,54,102],help='Size of the graph.')
     parser.add_argument('--num_split', type=int, required=True,choices=[1,3,7,15,31,63], help='Number of splits.')
     parser.add_argument('--model',required=True, default='attention', help="Model, 'attention' or 'attention_v2'")
+    parser.add_argument('--load_path', help="ckpt path,eg:'/home/cym/APSS-main/APSS-main/resource/outputs/pp_52/pp_52_8_20240701T180050/epoch-50.ckpt'")
     parser.add_argument("--rebuild_data",action="store_true",help="If set, program will rebuild training data.")
 
     args = parser.parse_args()
@@ -57,7 +71,11 @@ def main():
     # 执行某个特殊的求解
     opts = get_options()
     opts.num_split = max_num_split
-    opts.run_name = "{}_{}_{}_{}".format(opts.problem, opts.graph_size,opts.num_split + 1,time.strftime("%Y%m%dT%H%M%S")) 
+    if args.load_path:
+        import re
+        opts.run_name = re.search(r"pp_\d+\d+\d+T\d+",args.load_path).group()
+    else:
+        opts.run_name = "{}_{}_{}_{}".format(opts.problem, opts.graph_size,opts.num_split + 1,time.strftime("%Y%m%dT%H%M%S")) 
     opts.node_size = opts.graph_size
     datadir = os.path.join(gen_opts.data_dir, opts.problem)    
     opts.val_dataset = os.path.join(datadir, "{}_{}_{}_{}_seed{}.pkl".format(opts.problem,opts.graph_size, opts.num_split + 1,gen_opts.name,opts.seed))
@@ -67,3 +85,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# 0
+# python -m apss.training.apss_run --graph_size 52 --num_split 7 --model attention_v2 --load_path /home/cym/APSS-main/APSS-main/resource/outputs/pp_52/pp_52_8_20240704T151223/epoch-50.ckpt
+# 1
+# python -m apss.training.apss_run --graph_size 52 --num_split 1 --model attention_v2 --rebuild_data
