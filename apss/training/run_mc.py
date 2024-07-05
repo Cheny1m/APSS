@@ -152,6 +152,9 @@ def run(opts):
         print('[*] Loading data from {}'.format(load_path))
         # load_data = mindspore_load_cpu(load_path)
         load_data = ms.load_checkpoint(load_path)
+        import re
+        opts.epoch_start = int(re.search(r"epoch-(\d+)",load_path).group(1))+1
+        opts.n_epochs -= (opts.epoch_start-1)
 
     # Initialize model
     model_class = {
