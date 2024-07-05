@@ -147,7 +147,7 @@ def train_all(model, optimizer, baseline, loss_fn,lr_scheduler, val_dataset, pro
                     print(f"baseline pi: {bl_partition}")
             
             # log_values(cost, grad_norms, epoch, batch_id, step, log_likelihood, reinforce_loss, bl_loss, tb_logger, opts)  
-            print("record log_likelihood(null):",log_likelihood)
+            print("record log_likelihood(null):",-log_likelihood.mean().asnumpy())
             log_values(cost, grad_norms1, epoch, batch_id, step, log_likelihood, loss_fn.get_loss()[0], loss_fn.get_loss()[1], tb_logger, opts)  
 
             if opts.run_test:
